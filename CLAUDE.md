@@ -2061,6 +2061,13 @@ second is invisible to every reader who was not in that session — which is all
 > **Being written down somewhere is not being documented.** A fact in the wrong document is
 > reachable only by somebody who already knows it exists.
 
+**Paid again on 2026-09-08, in public.** The repository went to GitHub with the *internal*
+README — the one that explains the six pillars to somebody who already works here. The 367-line
+one written for a stranger sat in a folder **outside the repository**, described only in a
+session handover that is itself gitignored. `LICENSE`, `NOTICE` and `CONTRIBUTING.md` came from
+that same folder, so it was found and read; the README was simply not on the list somebody made.
+The file that exists to be read *first* was the one nobody could reach.
+
 Two things this shares with the rules it sits beside, and the family is worth seeing:
 
 - **A record of a hole must be closed in the same commit that closes it** (2026-08-23). The same

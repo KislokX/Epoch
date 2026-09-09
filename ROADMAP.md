@@ -4783,7 +4783,98 @@ than a thing blocking work that never needed a remote.
 the reasoning that the first thing anybody installs should be able to *make* something. The owner
 kept it at the end: the release ships what the product is, not the first thing that works.
 
-### How the release is actually handled *(decided across 2026-09-05…07)*
+### How the release is actually handled *(planned 2026-09-05…07, done differently 2026-09-08)*
+
+**The plan in this section was written the day before it was carried out, and it was not the
+plan that was carried out.** Both accounts are kept, because the difference is the useful part —
+but what follows is measured from the repository on 2026-09-08, and where the two disagree this
+is the one that is true.
+
+#### What actually happened
+
+**One repository so far, not two, and it exists**: `github.com/KislokX/Epoch`, public, `main`
+tracked and pushed. `github.com/KislokX/Epoch-Services` also exists and is **empty** — a LICENSE
+and GitHub's own *Initial commit*, nothing else.
+
+**The history was squashed rather than scrubbed.** The publication branch opens at one root
+commit — `419a72f Epoch` — and the real development history is kept locally on
+`archive/pre-publication`, which is **not pushed**. That answers the question this phase had left
+open (`git rm --cached` removed the vault from the future and not the past, so old commits still
+held the author's face, machine paths and one real conversation) by not publishing the past at
+all.
+
+> **The publication tree is now the repository itself**, filtered by `.gitignore`, rather than a
+> separate tree built by a script. `EpochServices/`, `AMDBuild/`, `AUDIT-QA-*.md` and the session
+> handovers are ignored, so they are absent from the published history by construction rather
+> than by a copy step somebody has to remember to run.
+
+**`publish.py` and `../PUBLISH/` are superseded and `../PUBLISH-FILES/` is not.** The script that
+built a scrubbed tree is no longer how Epoch is published. The folder beside it still holds the
+**authored public files** — both READMEs, both SECURITY policies, the nine screenshots — and it
+is still where the Epoch-Services ones live. It is a source, not a pipeline.
+
+#### The lesson that cost a public repository its front page
+
+The repository went public with the **internal** README: the one that explains the six pillars to
+somebody who already works here. The 367-line one written for a stranger — a screenshot of every
+Launcher deck, what each configures, how to check an unsigned download — sat in `../PUBLISH-FILES/`
+and was never copied in. `LICENSE`, `NOTICE` and `CONTRIBUTING.md` came from that same folder, so
+it was found and read; the README was simply not on the list somebody made.
+
+> **Being written down somewhere is not being documented**, in its sharpest form yet: the file
+> that exists to be read *first* was the one nobody could reach, in a folder outside the
+> repository, described only in a handover that is itself gitignored.
+
+Fixed in `607f9ad`, and merged rather than swapped — the version in the tree had the accurate
+artefact names and verify commands, which the older draft got wrong.
+
+#### How a release is cut
+
+`release.yml`, on a `v*` tag or by hand, in three jobs that may not be collapsed:
+
+1. **`gates`** — calls `ci.yml` whole. Not a copy of its steps: a second list of gates is a list
+   that drifts, and the one that drifts is the one nobody runs. Provenance accredits *where* an
+   artefact came from, never that it survived QA.
+2. **`windows`** — builds the app, then `epoch-setup` (whose `build.rs` embeds the MSI the step
+   before produced, so the order is not optional), writes `SHA256SUMS`, produces CycloneDX parts
+   lists for the app, for setup and for the frontend, and attests all of it. It keeps
+   `contents: read`; only `id-token` and `attestations` are widened.
+3. **`publish`** — downloads what was already built and attested and creates a **draft** Release.
+   Building a second time would produce a different file from the one the attestation describes.
+   The owner reads the draft and presses the button.
+
+Nothing is signed, and that is settled: see *What replaces a signature when there is no money for
+one* in `CLAUDE.md`. `sha256sum -c SHA256SUMS` and `gh attestation verify … --repo KislokX/Epoch`
+are what ship instead, and the README says so along with what SmartScreen will do anyway.
+
+#### What is left, and it is the second repository
+
+`KislokX/Epoch-Services` is empty, and filling it is the piece this section predicted would be
+hard. `EpochServices/` is now gitignored out of the main repository, so the program currently
+lives in **no repository at all** — only on the owner's disk.
+
+Its `Cargo.toml` reaches five shared crates by `path = "../BUILD/crates/…"`, which is a path that
+does not exist in a tree containing only `EpochServices/`. The recommendation stands and is now
+finally possible, because the thing it was waiting for exists:
+
+1. rewrite the five path dependencies as `git = "https://github.com/KislokX/Epoch"` with a
+   pinned `rev` — which is what its own README already claims, and keeps one copy of the code;
+2. restore its `README.md`, `LICENSE`, `NOTICE`, `SECURITY.md` and `CONTRIBUTING.md` from
+   `../PUBLISH-FILES/epochservices/`, all five of which were deleted from the main tree by
+   `ad888c3` and exist nowhere else;
+3. restore `epochservices.yml`, deleted by the same commit;
+4. **build it from a clone of the publication tree**, not from the working copy — the working
+   copy is the one place the path dependencies resolve, so it is the one place that cannot
+   detect this defect;
+5. push, and cut its first release the same way.
+
+Its README needs two corrections while it is open: it says *"four crates"* where there are five
+(`epoch-wire` was added 2026-09-07), and *"pinned by revision in `Cargo.toml`"*, which will only
+become true at step 1.
+
+<details>
+<summary>The plan as written on 2026-09-07, kept because the difference is the useful part</summary>
+
 
 Everything in this subsection was decided with the owner and had, until now, lived only in a
 conversation. It is written here because Phase 16 is the phase that performs it.
@@ -4858,6 +4949,8 @@ so the order is: publish `epoch`, take its commit, then publish `epochservices` 
    the attestations to a Release on each.
 5. Only then the announcement — with Linux unmeasured, the bundle size and the two large files
    named in it rather than hidden.
+
+</details>
 
 **Ground.** The Wizard and the app are built from one tree, tagged together
 ([Install and First Launch](docs/Milestones/First%20Run.md)).
