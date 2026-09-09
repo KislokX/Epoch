@@ -1,0 +1,270 @@
+# What must be true of every change.
+#
+# Each gate below is one the audit found unenforced, and every one of them had already drifted:
+# 601 formatting hunks, 27 clippy warnings, an MSRV that was false, a dependency policy that did
+# not pass, and a TypeScript layer with no tests at all. A rule nothing checks is a rule that has
+# already been broken and nobody noticed.
+#
+# Deliberately one job for Windows. Splitting *that* would parallelise a build that takes minutes
+# and cost the ability to say "CI is green" about a single thing.
+#
+# ## And a second job, because one operating system measures one
+#
+# The suite had never run on macOS. When it finally did, it found an application that **did not
+# compile there at all** — a `#[cfg(not(target_os = "macos"))]` that had drifted one item down
+# onto a function `epoch-tauri` calls — a door that reported its failure to its own thread, and
+# six fixtures written with Windows paths that measured nothing on a Mac while reading as though
+# they measured the most important case.
+#
+# EpochServices is *usually* the Mac in this pair, so a Windows-only CI was checking the program
+# that mostly runs somewhere else. This job is what stops that from being true again.
+#
+# It does not run the frontend: TypeScript does not have an operating system, and running `npm
+# test` twice would cost minutes to learn nothing.
+#
+# ## Both programs, every time
+#
+# EpochServices was not built here at all, and it shares four crates with Epoch. The standing
+# two-surfaces rule — *ask whether EpochServices needs this too* — fails quietly, and the bill
+# arrives on the day somebody needs to deploy to the other machine rather than the day it broke.
+# It has been paid twice. So both are checked in the same job, and a shared crate that only
+# compiles on one side fails here.
+#
+# ## Actions are pinned to commits
+#
+# `@v4` is a tag somebody else can move, and moving it changes what runs with this repository's
+# token checked out. The comment beside each SHA says which tag it was, so upgrading stays a
+# thing a person does on purpose.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  # **Callable, so a release can be made to depend on it.**
+  #
+  # Provenance says where an artefact came from. It says nothing about whether it passed
+  # anything — a release workflow that only builds will happily sign a statement about a commit
+  # whose tests fail. Binding the two means the gates run against the *same SHA* that is about
+  # to be published, rather than against whatever was pushed to a branch some time before.
+  workflow_call:
+
+# Nothing here writes anything. The default token is broader than that, and the difference is
+# only visible on the day something in this job is compromised.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # A warning that does not fail is a warning nobody reads.
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    # Windows, because that is where Epoch is developed and where its one `unsafe` block lives
+    # (DPAPI, in `secrets.rs`). A Linux-only CI would never compile the code that most deserves it.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # **The declared minimum, proved rather than declared.**
+      #
+      # `rust-version` said 1.82 for months while `image` and `egui` both required 1.88 — so a
+      # machine with exactly the stated minimum could not build this at all. A version nothing
+      # checks is a claim, and this is the check: the workspace has to compile on the oldest
+      # toolchain it says it supports, or the number is wrong and this says so.
+      #
+      # **And it was wrong again the moment it was written, which is the point of running it.**
+      # This job has never executed — there is no remote yet — so 1.88 was still a claim.
+      # Measured 2026-09-08 with the toolchain in hand: `ordered-float 5.5.0`, which arrives
+      # through `wgpu-hal → wgpu → polyscope → epoch-tauri`, declares `rust-version = 1.90`, and
+      # `cargo +1.88.0 check --workspace --locked` refuses the tree by name. 1.90 builds both
+      # workspaces. A number that is checked is worth more than a number that is low.
+      - name: The declared minimum
+        uses: dtolnay/rust-toolchain@49fda20b3f489226feadfba7767be1db54e2cee1 # 1.90.0
+        with:
+          toolchain: "1.90.0"
+
+      - name: Epoch builds on the minimum
+        working-directory: BUILD
+        run: cargo check --workspace --locked
+
+      - name: EpochServices builds on the minimum
+        working-directory: EpochServices
+        run: cargo check --locked
+
+      - name: Back to stable for the rest
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: |
+            BUILD
+            EpochServices
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BUILD/ui/package-lock.json
+
+      # ---------------------------------------------------------------- Epoch
+
+      # First, because it is the cheapest and the most often forgotten. Formatting is not
+      # cosmetic at this size: it is what makes a diff reviewable.
+      - name: Formatting
+        working-directory: BUILD
+        run: cargo fmt --check
+
+      - name: Lint
+        working-directory: BUILD
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # `--all-targets` above does not run them; this does. The integration test that writes the
+      # IPC fixtures runs here, so the frontend's contract test reads freshly generated bytes
+      # rather than whatever was committed.
+      - name: Tests
+        working-directory: BUILD
+        run: cargo test --workspace
+
+      # --------------------------------------------------------- EpochServices
+
+      - name: Services formatting
+        working-directory: EpochServices
+        run: cargo fmt --check
+
+      - name: Services lint
+        working-directory: EpochServices
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Services tests
+        working-directory: EpochServices
+        run: cargo test
+
+      # ---------------------------------------------------------- Presentation
+
+      - name: Install
+        working-directory: BUILD/ui
+        run: npm ci
+
+      # Where a renamed Rust field is caught: the fixtures written above must still satisfy the
+      # TypeScript types that claim to describe them.
+      - name: Types
+        working-directory: BUILD/ui
+        run: npm run typecheck
+
+      - name: UI tests
+        working-directory: BUILD/ui
+        run: npm test
+
+      # **The production build, which is a different build.** `npm test` runs the sources; the
+      # installer ships what this produces, and the two have disagreed before — a release build
+      # can fail on something the test build never sees. Anything that only breaks here would
+      # otherwise break for the first time while cutting a release.
+      - name: The bundle builds
+        working-directory: BUILD/ui
+        run: npm run build
+
+      # The fixtures are committed, so they must match what the Engine now produces. A diff here
+      # means the wire changed and the checked-in description of it did not.
+      - name: The wire has not drifted
+        working-directory: BUILD
+        shell: bash
+        run: |
+          if ! git diff --quiet -- ui/src/ipc/__fixtures__; then
+            echo "The IPC fixtures changed. Commit them, and make the TypeScript side true."
+            git diff -- ui/src/ipc/__fixtures__
+            exit 1
+          fi
+
+      # A skipped test is a claim nobody checks, so the suite has to say what it is waiting for.
+      # `cargo test` prints the string in the attribute and nothing else -- a condition written
+      # only in a doc comment above it is a condition the person running the suite never reads.
+      # Twelve had drifted into being bare before anybody counted.
+      - name: Every skipped test says what it is waiting for
+        shell: bash
+        run: |
+          bare=$(grep -rEn '^[[:space:]]*#\[ignore\]' --include='*.rs' BUILD/crates EpochServices || true)
+          if [ -n "$bare" ]; then
+            echo "These are skipped with no reason. Write one: #[ignore = \"needs ...\"]"
+            echo "$bare"
+            exit 1
+          fi
+
+      # ------------------------------------------------------- Supply chain
+
+      # Both, because they have different dependency trees and different target lists: Epoch
+      # builds for Windows, and EpochServices already runs on a Mac.
+      - name: Advisories and licences
+        shell: bash
+        run: |
+          cargo install cargo-deny --locked
+          (cd BUILD && cargo deny check)
+          (cd EpochServices && cargo deny check)
+
+      # **And the other ecosystem, which had no gate at all.** `cargo deny` covers Rust; the
+      # frontend's advisories were being found by somebody running `npm audit` by hand, which is
+      # the same as not being found.
+      #
+      # Two questions rather than one, because they have different answers. What **ships** is the
+      # bundle: anything at all there is a real exposure and fails. What builds it — the test
+      # runner, the bundler — never reaches a user's machine, so a moderate advisory in it is
+      # worth reading and not worth stopping a release for. `high` is the line: a test runner
+      # that can read arbitrary files is worth stopping for, and this is exactly the distinction
+      # `--omit=dev` exists to draw.
+      #
+      # Printed either way. A gate that fails silently on the interesting half would send
+      # somebody to `npm audit` to find out what it meant.
+      - name: npm advisories
+        shell: bash
+        working-directory: BUILD/ui
+        run: |
+          echo "--- what ships ---"
+          npm audit --omit=dev --audit-level=low
+          echo "--- what builds it ---"
+          npm audit || true
+          npm audit --audit-level=high
+
+  # The other machine. Both programs, both suites, no frontend.
+  #
+  # A keychain that cannot be reached is **skipped and said out loud** rather than failed: a
+  # locked login keychain is nobody at the machine, which is a state a build agent can be in.
+  # A *broken* store still fails — see `Store::reachable`, which is three answers for that
+  # reason.
+  mac:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: |
+            BUILD
+            EpochServices
+
+      - name: Lint
+        working-directory: BUILD
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        working-directory: BUILD
+        run: cargo test --workspace
+
+      - name: Services lint
+        working-directory: EpochServices
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Services tests
+        working-directory: EpochServices
+        run: cargo test

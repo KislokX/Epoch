@@ -1,0 +1,767 @@
+/*
+ * The World's look for Milestone 1, Step 2.5.
+ *
+ * Deliberately restrained: the World Pack owns the real visual identity (ADR-0016), so
+ * nothing here encodes an art style. Terrain colours are keyed to canonical terrain kinds,
+ * so a different pack's geography renders through the same vocabulary.
+ *
+ * Everything geometric is in world units, inside the SVG. Only colour and stroke live here.
+ */
+
+:root {
+  --ink: #e8eef7;
+  --ink-quiet: #8fa3bf;
+
+  --road: #6b5c42;
+  --stone-wall: #59606f;
+  --stone-lit: #6d768a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#world-root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #0b0f16;
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- the World */
+
+.world {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+/*
+ * The stage is the window into the World, not the World. It has a size; the World does not.
+ * `min-height: 0` keeps a grid row from being stretched by its content — without it the
+ * stage would grow to whatever is drawn inside and the camera would stop meaning anything.
+ */
+.world__stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+
+  /*
+   * Immersion leaks.
+   *
+   * Nothing should remind the user they are inside a browser. Dragging across a world should
+   * move the world, not paint a text selection across its buildings; the caret is a document
+   * affordance and there is no document here.
+   */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/*
+ * Only what a Place DECLARES as interactive is interactive. Artwork is never a hit target,
+ * which stops assets being dragged out as images and keeps the promise that interaction
+ * happens around an asset rather than inside it (ADR-0022).
+ */
+.mark,
+.figure {
+  pointer-events: none;
+}
+
+/*
+ * Pixel art scaled up must not be smoothed: the blocky edge IS the art.
+ *
+ * This is nearest-neighbour upscaling, which produces exactly the same picture as emitting
+ * one <rect> per run of pixels would - at 666 bytes instead of tens of kilobytes, and with
+ * the browser still able to downsample cleanly when the camera pulls back.
+ *
+ * Global today because every asset the default World uses is pixel art. The moment a World
+ * ships something that should be smoothed, this becomes a field on the Mark - the World knows
+ * whether its art is pixel art, and the renderer cannot.
+ */
+.mark--asset,
+/*
+  The animated one too. Its class is on the wrapping `<g>` and nothing matched it, so a walking
+  character was smoothed while the same character standing still was not — the sprite was crisp
+  and the animation was soft, which reads as the sheet being bad artwork.
+
+  Both selectors, because the element that draws now carries `.mark--asset` and the group still
+  carries `.mark--sheet`: the one that matters is the first, and the second costs nothing and
+  keeps the group honest if a future renderer draws more inside it.
+*/
+.mark--sheet {
+  image-rendering: pixelated;
+}
+
+/*
+ * The four layers, in order: backdrop, scrim, stage, HUD.
+ *
+ * The backdrop is authored art a World Pack may supply — sky, horizon, distance. It sits
+ * *under* the terrain rather than replacing it, so roads, Places and inhabitants still draw on
+ * top and the World remains something things can be derived from. A World with no backdrop is
+ * complete, not unfinished.
+ */
+.world__frame {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.world__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  image-rendering: pixelated;
+  /* Immersion leaks: not draggable out as a file, and never in the way of the camera. */
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* So the instruments stay readable over whatever the author supplied. */
+.world__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(16, 18, 43, 0.45);
+}
+
+.world__frame .world__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+/* With a backdrop behind it the stage must not paint over it. */
+.world__frame .worldmap {
+  background: transparent;
+}
+
+.world__unmapped {
+  height: 100%;
+  background: linear-gradient(180deg, #10161f 0%, #0b0f16 100%);
+}
+
+/* Honest about the connection, out of the instruments' way. */
+.world__quiet {
+  position: absolute;
+  left: 50%;
+  bottom: 74px;
+  z-index: 4;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  max-width: 42rem;
+  text-align: center;
+  background: rgba(5, 6, 15, 0.85);
+  box-shadow: 0 0 0 2px rgba(255, 206, 74, 0.4);
+  font: 400 12px/1.5 var(--ep-body, system-ui);
+  color: #f6d9a0;
+  pointer-events: none;
+}
+
+.worldmap {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.worldmap--dragging {
+  cursor: grabbing;
+}
+
+/* ------------------------------------------------------------------ minimap */
+
+/*
+ * Sized as a fraction of the window rather than in fixed pixels: the minimap is a companion
+ * to the World, and it should not become a bigger share of a small screen than of a large one.
+ */
+.minimap {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(20vw, 240px);
+  height: min(14vw, 170px);
+  border: 1px solid #2b3648;
+  border-radius: 4px;
+  background: #0b0f16;
+  cursor: crosshair;
+  opacity: 0.82;
+  transition: opacity 140ms ease;
+}
+
+/*
+ * Inside a HUD panel instead of floating in the corner.
+ *
+ * The minimap predates the HUD and positioned itself, because nothing else was going to. It has
+ * a home now, so it fills the panel it was given and drops the corner it used to claim.
+ */
+.minimap--inline {
+  position: static;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  opacity: 1;
+}
+
+.minimap:hover {
+  opacity: 1;
+}
+
+.minimap__ground {
+  fill: #0b0f16;
+}
+
+.minimap__terrain {
+  stroke: none;
+  opacity: 0.85;
+}
+
+.minimap__place {
+  fill: var(--ink);
+  opacity: 0.9;
+}
+
+/* You are here. Everything outside this rectangle is World you are not looking at. */
+.minimap__view {
+  fill: rgba(232, 238, 247, 0.1);
+  stroke: var(--ink);
+  /* Non-scaling, so this stays a hairline no matter how large the World grows. */
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.5;
+}
+
+/* ============================================================================
+   The chart — a World drawn small, on the bridge
+   ============================================================================
+
+   `WorldPreview` has referenced `.wp__place`, `.wp__halo` and `.wp__route` since it was
+   written, and **none of the three had ever been styled.** An unstyled SVG shape fills black,
+   so every Place on the chart was an opaque black disc: the map read as holes rather than as
+   settlements.
+
+   It was invisible for as long as the shipped Worlds carried a `preview.png`, because authored
+   key art fills the viewport and the chart is a click behind it (ADR-0024). Taking the artwork
+   out did not cause this — it stopped hiding it, and made the chart the first thing a new
+   user sees.
+
+   The terrain classes below were reaching the chart the whole time, which is exactly why
+   nobody noticed: two thirds of the picture was correct.
+
+   Same palette as the World itself, because it is the same World. A Place is warm against cold
+   ground, with a soft ring so it holds its shape over water as well as grass — which is what
+   the component's own comment says the two circles are for. */
+
+.wp__route {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wp__route--major {
+  stroke: #7b6a4c;
+  opacity: 0.95;
+}
+
+.wp__route--minor {
+  stroke: #5d5340;
+  opacity: 0.75;
+}
+
+/* The ring: the ground pulled up around a Place, never a glow. It has to work on water too,
+   so it is a light of the World's own gold rather than a lightened grass. */
+.wp__halo {
+  fill: rgba(232, 183, 74, 0.16);
+}
+
+.wp__place {
+  fill: #e8b74a;
+  stroke: rgba(20, 16, 28, 0.55);
+  stroke-width: 1.5;
+}
+
+/* ------------------------------------------------------------------ terrain */
+
+.terrain {
+  stroke: none;
+}
+.terrain--grass {
+  fill: #35513a;
+}
+.terrain--forest {
+  fill: #1f3626;
+}
+.terrain--water {
+  fill: #1d3350;
+}
+.terrain--mountain {
+  fill: #3f4652;
+}
+.terrain--stone {
+  fill: #4d525f;
+}
+.terrain--sand {
+  fill: #574f39;
+}
+
+/* -------------------------------------------------------------------- roads */
+
+.route {
+  fill: none;
+  stroke: var(--road);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A well-travelled road is wider and clearer than a faint one. */
+.route--major {
+  stroke: #7b6a4c;
+  opacity: 0.95;
+}
+
+.route--minor {
+  stroke: #5d5340;
+  opacity: 0.7;
+  stroke-dasharray: 34 22;
+}
+
+/* The route under construction is deliberately different from a saved road: it is only the
+ * editor's hand, and cannot be mistaken for World history until a destination is chosen. */
+.wed-road-draft {
+  fill: none;
+  stroke: var(--ep-gold);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 20 16;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------- places */
+
+/*
+ * Colour ROLES, not per-building rules. This file has no idea which Place it is painting —
+ * appearance geometry lives in the active World (ADR-0019). Only the palette lives here.
+ *
+ * Stroke belongs on the drawn element, never on the group.
+ *
+ * This was the Step 2.5 fill regression. These three declarations used to sit on the mark
+ * group itself (then called `.look`), which carries `transform: scale(footprint)`. But
+ * `stroke` and `stroke-width` are
+ * inherited properties while `vector-effect` is NOT (SVG 2: "Inherited: no"). So the
+ * children inherited a 1.6 stroke *without* the non-scaling effect, inside a scale of up to
+ * 165 — a 264px black outline on a 165px building. Every shape flooded black and every
+ * roof bled far outside its silhouette.
+ *
+ * The lesson generalises: a non-inherited property applied to a group is a silent no-op.
+ */
+.tone {
+  stroke: rgba(0, 0, 0, 0.42);
+  /* Geometry arrives in footprint units and is scaled up, so the stroke must scale down. */
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.6;
+}
+
+.tone--wall {
+  fill: var(--stone-wall);
+}
+.tone--roof {
+  fill: #4a5162;
+}
+.tone--detail {
+  fill: #2c313c;
+}
+.tone--accent {
+  fill: #6a7488;
+}
+
+/*
+ * A contact shadow is a colour role like any other, which is how the World can restyle its
+ * shadows without this file knowing what a shadow is. It carries no outline: an ellipse on
+ * the ground is not an object with an edge.
+ */
+.tone--shadow {
+  fill: rgba(0, 0, 0, 0.34);
+  stroke: none;
+}
+
+/* An inhabited Place is lit. Occupancy is real engine state, never decoration. */
+.place--inhabited .tone--wall {
+  fill: var(--stone-lit);
+}
+.place--inhabited .tone--roof {
+  fill: #5c657a;
+}
+.place--inhabited .tone--detail {
+  fill: #d9c07a;
+}
+.place--inhabited .tone--accent {
+  fill: #f0dda0;
+}
+
+/* No World described this Place, or it asked for something we cannot draw. */
+.mark--undeclared,
+.mark--unsupported {
+  fill: #4a4430;
+  stroke: #d8c68a;
+  stroke-width: 3;
+  stroke-dasharray: 12 8;
+}
+
+.mark__note {
+  fill: #d8c68a;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 26px;
+  text-anchor: middle;
+  stroke: none;
+}
+
+.place__label {
+  fill: var(--ink);
+  /* Size is set on the element, from the Place's footprint. See `Place.tsx`. */
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 5px;
+  letter-spacing: 0.5px;
+}
+
+.place--unresolved .place__label {
+  fill: #d8c68a;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+}
+
+/* ---------------------------------------------------------------- visiting */
+
+/*
+ * Emphasis happens AROUND the asset, never inside it (ADR-0022). Nothing here assumes the
+ * artwork contains editable windows, doors or lights - it may be an SVG today and a pixel
+ * sprite tomorrow, and both must respond identically.
+ */
+
+.place__target {
+  fill: transparent;
+  cursor: pointer;
+  /*
+    Declared, because `pointer-events` is inherited and `.figure` sets it to `none`.
+
+    That rule is the one keeping artwork from being a hit target (ADR-0022) and it must stay —
+    but a declared target *inside* a figure is precisely the exception it exists to allow, and
+    inheriting `none` would leave a rect that is drawn, aimed at, and silent. The promise is
+    "interaction happens around an asset, never inside it"; this is the around.
+  */
+  pointer-events: auto;
+}
+
+.place__target:focus {
+  outline: none;
+}
+
+/*
+  A building that can be picked up says so before it is touched. The class only exists while
+  the World is stopped for editing, so a running World cannot show a grab cursor over something
+  that will not move (ADR-0028).
+*/
+.place__target--movable {
+  cursor: grab;
+}
+
+.place__target--movable:active {
+  cursor: grabbing;
+}
+
+.place--hovered,
+.place__target:focus-visible + * {
+  filter: brightness(1.14);
+}
+
+.place--hovered .place__label {
+  fill: #ffffff;
+}
+
+/* Arriving somewhere means the rest of the World recedes - it does not disappear. */
+.worldmap--visiting .place:not(.place--visited),
+.worldmap--visiting .route {
+  opacity: 0.35;
+  transition: opacity 220ms ease;
+}
+
+.place {
+  transition: opacity 220ms ease, filter 160ms ease;
+}
+
+.place--visited {
+  filter: brightness(1.2) drop-shadow(0 0 22px rgba(216, 198, 138, 0.28));
+}
+
+/* The size is set on the element, derived from the footprint — a constant here would win by
+   specificity and put every visited Place back to one size. Only the colour belongs to CSS. */
+.place--visited .place__label {
+  fill: #ffffff;
+}
+
+/*
+ * Reveal level 1. Only what is true: what this Place is for, and who is here. It appears in
+ * the world, under the name - not in a panel, because opening a panel would be opening
+ * software, and the user is meant to have arrived somewhere.
+ */
+.place__reveal {
+  animation: arrive 260ms ease-out both;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.place__subtitle {
+  fill: var(--ink);
+  font-size: 24px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 5px;
+}
+
+.place__occupancy {
+  fill: var(--ink-quiet);
+  font-size: 21px;
+  font-style: italic;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 5px;
+}
+
+/* -------------------------------------------------------------- inhabitants */
+
+.figure__shadow {
+  fill: rgba(0, 0, 0, 0.4);
+}
+
+/*
+ * Breathing. Ambient life is honest information — the World being alive is true — but it
+ * must never imply work that is not happening, so this is deliberately small.
+ */
+/*
+ * `stir` fires once whenever the activity changes, and only then.
+ *
+ * It animates `filter` while `breathe` animates `transform`, so the two compose instead of
+ * fighting. This is the whole of Presence so far: the life was already there and changing on
+ * a real schedule - it simply happened between frames, where nobody could see it. Nothing new
+ * is claimed, and at any zoom the shift reads even when the words do not.
+ */
+.figure__body--undeclared {
+  fill: #e6d9a8;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 1.5;
+}
+
+.figure__body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation:
+    breathe 4.2s ease-in-out infinite,
+    stir 900ms ease-out 1;
+}
+
+@keyframes stir {
+  0% {
+    filter: brightness(1.6);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.045);
+  }
+}
+
+/*
+ * Deliberately not scaled to stay readable from across the World. From far away you should
+ * perceive that someone is there and that something changed - not read what they are doing.
+ * Making this legible at every distance would turn the World into a dashboard.
+ */
+.figure__activity {
+  fill: var(--ink-quiet);
+  /* Size is set on the element, from how tall this person stands. See `Place.tsx`. */
+  font-style: italic;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(8, 12, 18, 0.85);
+  stroke-width: 6px;
+  animation: note 900ms ease-out both;
+}
+
+/* Opacity only: a translate here would be in world units, and 4 of those are invisible. */
+@keyframes note {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/*
+ * Work must be visually distinguishable from idle, or the World implies work that is not
+ * happening (Build From Life, rule 3). Reserved until real execution exists.
+ */
+.figure--work .figure__activity {
+  fill: #cfe3ff;
+  font-style: normal;
+}
+
+.figure--work .figure__body {
+  fill: #bcd6ff;
+  animation-duration: 1.9s;
+}
+
+/*
+ * Walking.
+ *
+ * The bob is a *gait*, not a decoration: it exists so that somebody crossing the map reads as
+ * moving under their own power rather than sliding. It replaces `breathe` for the duration —
+ * two animations on `transform` would fight, and a person who is walking is not standing still
+ * breathing.
+ *
+ * Small on purpose. The information is "she is going somewhere", which the position already
+ * carries; this only makes it legible at a distance where the position changes slowly.
+ */
+/*
+ * The bob **is** the walk, for anybody nobody has drawn walking.
+ *
+ * Skipped once their own sheet is playing: the artwork already contains a gait, and laying
+ * ours over it makes somebody bob to a rhythm their animation is not keeping. Same rule as
+ * everywhere else here — authored artwork wins, and the derived thing stays for the World that
+ * has none (ADR-0024).
+ */
+.figure--walking:not(.figure--played) .figure__body {
+  animation:
+    stride 620ms ease-in-out infinite,
+    stir 900ms ease-out 1;
+}
+
+@keyframes stride {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(-3%) scaleY(0.985);
+  }
+}
+
+/*
+ * The shadow keeps its own time.
+ *
+ * Tied to the same rhythm as the body, so the figure reads as one thing lifting off the ground
+ * rather than a sprite with an unrelated smudge under it.
+ */
+.figure--walking:not(.figure--played) .figure__shadow {
+  animation: tread 620ms ease-in-out infinite;
+}
+
+@keyframes tread {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.26;
+  }
+}
+
+/*
+ * **Walking to work looks different from walking on a routine.**
+ *
+ * This is not a style choice — it is the Living World Design Guide's requirement, and ADR-0018
+ * repeats it: idle movement must be visually distinguishable from working movement, or the World
+ * becomes unreadable. The Engine decides which this is (`ActivityClass`, from what waits at the
+ * other end of the walk); the difference is only *drawn* here.
+ *
+ * Somebody on their routine strolls. Somebody carrying work moves with purpose and is lit the
+ * same cold blue that marks every other kind of work in this World, so the two readings agree.
+ */
+.figure--walking.figure--work .figure__body {
+  animation-duration: 430ms;
+}
+
+.figure--walking.figure--work .figure__shadow {
+  animation-duration: 430ms;
+}
+
+/* -------------------------------------------------------------- status line */
+
+.world__status {
+  padding: 0.7rem 1.25rem;
+  text-align: center;
+  background: #0b0f16;
+}
+
+.world__status-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-quiet);
+}
+
+.world__status-text--quiet {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-style: italic;
+}
+
+/* The way back lives in the frame around the World, never inside it. */
+.world__status {
+  position: relative;
+}
+
+.world__leave {
+  position: absolute;
+  left: 1.25rem;
+  bottom: 0.55rem;
+  background: none;
+  border: 0;
+  color: var(--ink-quiet);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+
+.world__leave:hover {
+  color: var(--ink);
+}

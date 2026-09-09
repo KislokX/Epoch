@@ -1,0 +1,31 @@
+# How two machines speak to each other, and how each knows who the other is.
+#
+# **Its own crate because two programs are the two ends of one conversation.** Epoch dials;
+# EpochServices answers; and every property that makes that safe — the certificate a machine is
+# known by, the fingerprint pinned at pairing, the door that speaks TLS — has to be the *same*
+# implementation on both sides or it is two implementations of a handshake, which is the one place
+# a difference of opinion is a vulnerability rather than a bug.
+#
+# Not `epoch-secrets`: that crate is the operating system's credential store, and a certificate on
+# disk beside the vault is a different mechanism with a different failure. Not the Kernel: the
+# Kernel has zero I/O and this is nothing but I/O. Not the Engine: EpochServices may not link it
+# (ADR-0029 §9).
+#
+# It depends on nothing of Epoch's. A socket is not a domain type.
+[package]
+name = "epoch-wire"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "How two machines speak to each other, and how each knows who the other is."
+# Path-free, so unlike `epoch-models` this one could be published. It is not, and that is a
+# decision rather than an accident: nothing outside Epoch should depend on a handshake shaped
+# entirely by one pairing flow.
+publish = false
+
+[dependencies]
+rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
+rcgen = { workspace = true }
+sha2 = { workspace = true }

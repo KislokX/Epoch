@@ -1,0 +1,360 @@
+/*
+ * Cold start.
+ *
+ * The authored reference's look, rebuilt in Epoch's own terms: a starfield drifting behind a
+ * violet bloom, a BIOS report typed over it, and the wordmark it resolves into.
+ *
+ * Two deliberate departures from the file it came from. Its fonts arrived from the Google Fonts
+ * CDN; ours are bundled, because a desktop application may not reach the network to draw its own
+ * first frame. And its markup carried every rule inline, which cannot be themed, cannot honour
+ * reduced motion, and cannot be read — so it lives here, next to `launcher.css`, in the same
+ * vocabulary as the bridge it opens onto.
+ *
+ * Its own file for the same reason `launcher.css` is: this belongs to starting the application
+ * and to nothing else. Nothing in a World may style it, and it may style nothing in a World.
+ */
+
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  overflow: hidden;
+  background: #07080f;
+  color: #c9ccdd;
+  font-family: var(--lx-mono, "IBM Plex Mono", ui-monospace, monospace);
+  /* Only the hand-over is a transition; the beats are keyframes, so a skip cuts cleanly. */
+  transition: opacity 400ms ease-out;
+}
+
+.boot--going {
+  opacity: 0;
+  /* On its way out: nothing beneath it should wait for the fade to become clickable. */
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ the sky */
+
+.boot__stars {
+  position: absolute;
+  inset: -4%;
+  opacity: 0.8;
+  animation: boot-drift 46s ease-in-out infinite alternate;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #8f95c4 40%, transparent 41%),
+    radial-gradient(1px 1px at 27% 62%, #6f76a6 40%, transparent 41%),
+    radial-gradient(1px 1px at 41% 12%, #a9afe0 40%, transparent 41%),
+    radial-gradient(1px 1px at 58% 40%, #767ca9 40%, transparent 41%),
+    radial-gradient(1px 1px at 69% 77%, #9aa0d0 40%, transparent 41%),
+    radial-gradient(1px 1px at 82% 24%, #6b7099 40%, transparent 41%),
+    radial-gradient(1px 1px at 91% 58%, #b0b6e6 40%, transparent 41%),
+    radial-gradient(1px 1px at 34% 88%, #7a80ae 40%, transparent 41%),
+    radial-gradient(1px 1px at 6% 71%, #8b91c0 40%, transparent 41%),
+    radial-gradient(1px 1px at 75% 8%, #969cce 40%, transparent 41%);
+}
+
+.boot__glow {
+  position: absolute;
+  right: -8%;
+  top: -14%;
+  width: 46vw;
+  height: 46vw;
+  border-radius: 50%;
+  animation: boot-breathe 11s ease-in-out infinite;
+  background: radial-gradient(
+    circle at 38% 34%,
+    rgba(145, 132, 217, 0.4),
+    rgba(96, 86, 160, 0.15) 46%,
+    rgba(10, 11, 20, 0) 70%
+  );
+}
+
+.boot__vignette {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 8, 15, 0) 42%, rgba(7, 8, 15, 0.92) 100%);
+}
+
+/* ------------------------------------------------------------------ the report */
+
+.boot__post {
+  position: absolute;
+  left: 6vw;
+  top: 12vh;
+  width: min(84ch, 88vw);
+  font-size: 13px;
+  line-height: 2;
+  letter-spacing: 0.03em;
+  color: #787d9b;
+}
+
+.boot__row {
+  display: flex;
+  gap: 10px;
+  white-space: pre;
+  animation: boot-line 280ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/*
+ * The label holds its width; the reading gives way.
+ *
+ * A dotted label is a fixed shape and truncating it would break the column. A reading is not:
+ * a provider's failure note or a long World name is whatever the machine said, and on a narrow
+ * window it ran straight off the right-hand edge. Ellipsis rather than wrap, so one line stays
+ * one line and the report keeps its shape.
+ */
+.boot__row > .boot__label {
+  flex: none;
+}
+
+.boot__label--head {
+  color: #e0b354;
+}
+
+.boot__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: boot-value 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/*
+ * Four tones, and they are the reason this screen is trustworthy.
+ *
+ * `good` is a working thing. `warn` is a real problem the user can act on — a provider that did
+ * not answer, an agent that is signed out. `cold` is an honest absence, which is neither. Giving
+ * "signed out" and "not installed" one colour would send somebody to the wrong fix.
+ */
+.boot__value--head { color: #e0b354 }
+.boot__value--good { color: #5fd18b }
+.boot__value--warn { color: #d99a5b }
+.boot__value--cold { color: #6c7089 }
+
+.boot__status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #5a5e78;
+}
+
+.boot__caret {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: #e0b354;
+  animation: boot-blink 900ms steps(1, end) infinite;
+}
+
+.boot__bar {
+  margin-top: 14px;
+  width: min(540px, 78%);
+  height: 12px;
+  padding: 2px;
+  border: 1px solid #2b2e46;
+  background: #101223;
+}
+
+.boot__fill {
+  height: 100%;
+  /* Steps, so it moves in real jumps rather than easing like a clock. */
+  transition: width 260ms steps(6, end);
+  background-image: repeating-linear-gradient(90deg, #9184d9 0 8px, transparent 8px 11px);
+  box-shadow: 0 0 14px rgba(145, 132, 217, 0.45);
+}
+
+/* ------------------------------------------------------------------ the wordmark */
+
+.boot__logo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.boot__rule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #9184d9;
+  font-size: 12px;
+  animation: boot-fade 600ms ease both;
+}
+
+.boot__rule span {
+  width: 120px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(145, 132, 217, 0), rgba(145, 132, 217, 0.7));
+}
+
+.boot__rule span:last-child {
+  background: linear-gradient(90deg, rgba(145, 132, 217, 0.7), rgba(145, 132, 217, 0));
+}
+
+.boot__mark {
+  position: relative;
+  display: flex;
+  gap: 0.06em;
+  font-family: var(--lx-pixel, "Press Start 2P", monospace);
+  font-size: clamp(38px, 6.4vw, 86px);
+  line-height: 1;
+}
+
+/*
+ * The gold is per letter, not on the word.
+ *
+ * The reference put one gradient on the parent and clipped it to its text. That is the ordinary
+ * way to do it and it renders nothing here, because each letter animates in through
+ * `filter: blur()` — a filter makes an element its own compositing root, so the parent's
+ * text-clipped background stops painting those glyphs and the wordmark comes up as a smudge.
+ * Measured, not reasoned: it was a blurred grey block on screen until the gradient moved down
+ * one level. Each letter now clips its own, which looks identical because the gradient is
+ * vertical and every letter is the same height.
+ */
+.boot__letter {
+  display: inline-block;
+  background: linear-gradient(180deg, #f6d98f 0%, #dfae52 52%, #b8801f 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 22px rgba(224, 179, 84, 0.32);
+  animation: boot-drop 620ms cubic-bezier(0.18, 0.8, 0.25, 1) both;
+}
+
+.boot__sweep {
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  width: 20%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: linear-gradient(90deg, rgba(255, 240, 200, 0), rgba(255, 240, 200, 0.26), rgba(255, 240, 200, 0));
+  animation: boot-sweep 1300ms cubic-bezier(0.4, 0, 0.2, 1) 700ms both;
+}
+
+.boot__sub {
+  font-family: var(--lx-pixel, "Press Start 2P", monospace);
+  font-size: 13px;
+  letter-spacing: 0.34em;
+  color: #9184d9;
+  animation: boot-fade 700ms ease 750ms backwards;
+}
+
+.boot__welcome {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  color: #7b7f99;
+  animation: boot-fade 700ms ease 950ms backwards;
+}
+
+/* ------------------------------------------------------------------ the glass */
+
+/*
+ * `pointer-events: none` is not cosmetic. This layer covers the whole screen, and the rule that
+ * an overlay may cover the World but never capture it is the same rule one surface earlier.
+ */
+.boot__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.26) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+}
+
+.boot__skip {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  padding: 8px 16px;
+  border: 1px solid #2b2e46;
+  border-radius: 3px;
+  background: transparent;
+  color: #787d9b;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  transition: color 200ms ease, border-color 200ms ease;
+}
+
+.boot__skip:hover,
+.boot__skip:focus-visible {
+  color: #c9ccdd;
+  border-color: #3b3468;
+}
+
+@keyframes boot-line {
+  from { opacity: 0; transform: translate3d(-8px, 0, 0) }
+  to   { opacity: 1; transform: none }
+}
+
+@keyframes boot-value {
+  from { opacity: 0; transform: translate3d(6px, 0, 0) }
+  to   { opacity: 1; transform: none }
+}
+
+@keyframes boot-blink {
+  0%, 48%   { opacity: 1 }
+  52%, 100% { opacity: 0 }
+}
+
+@keyframes boot-drop {
+  from { opacity: 0; transform: translate3d(0, -30px, 0) scale(0.94); filter: blur(8px) }
+  to   { opacity: 1; transform: none; filter: blur(0) }
+}
+
+@keyframes boot-fade {
+  from { opacity: 0; transform: translate3d(0, 6px, 0) }
+  to   { opacity: 1; transform: none }
+}
+
+@keyframes boot-sweep {
+  from { transform: translate3d(-140%, 0, 0) }
+  to   { transform: translate3d(420%, 0, 0) }
+}
+
+@keyframes boot-drift {
+  from { transform: translate3d(0, 0, 0) }
+  to   { transform: translate3d(-2%, 1.4%, 0) }
+}
+
+@keyframes boot-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(1) }
+  50%      { opacity: 1;    transform: scale(1.03) }
+}
+
+/*
+ * Reduced motion gets the destination, not the journey.
+ *
+ * Deliberately not `animation: none` alone: several of these keyframes *end* at the visible
+ * state, so cancelling them would leave the wordmark at `opacity: 0` — a black rectangle for
+ * anybody who asked for less movement, which is worse than the animation. The report still
+ * types, because that is the information arriving rather than decoration.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .boot__stars,
+  .boot__glow,
+  .boot__sweep {
+    animation: none !important;
+  }
+
+  .boot__row,
+  .boot__value,
+  .boot__letter,
+  .boot__rule,
+  .boot__sub,
+  .boot__welcome {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .boot__fill {
+    transition: none !important;
+  }
+}

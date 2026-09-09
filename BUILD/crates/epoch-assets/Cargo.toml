@@ -1,0 +1,35 @@
+# Authored content Epoch reads, understands and runs.
+#
+# **Its own crate because it answers a different question.** `epoch-models` answers *what can this
+# machine run, and what will it cost* — facts about hardware, about installed programs, about the
+# size of a file on disk. Nothing here is a fact about a machine. A ComfyUI workflow is a document
+# somebody authored, and reading one is the same kind of act as reading a World Pack or a
+# Character: parse it, understand what it can do, and refuse honestly when it cannot be read.
+#
+# The two lived together for exactly as long as `workflow.rs` was the only one, and the crate's
+# own description gave it away — "what a machine can run, and what a model costs to run there"
+# has never described a graph. Phase 11 adds the Asset Registry on top of this, which is when a
+# 2,500-line misfit inside the machine-facts crate would have become the expensive kind.
+#
+# Like `epoch-models` it depends on nothing of Epoch's, not even the Kernel. An asset is not a
+# domain type: it is somebody else's file, and this crate's whole job is turning one into
+# something the Engine can hold at arm's length.
+[package]
+name = "epoch-assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Authored content Epoch reads, understands and runs."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+# **Only the tests.** Every `ureq` call in here is a corpus test that offers a compiled workflow
+# to a live ComfyUI and reads what it says — the measurement that caught nine parser defects
+# nothing else would have. The library itself never opens a socket: reading a document and
+# reaching a server are different jobs, and `epoch-engine::comfy` owns the second one.
+[dev-dependencies]
+ureq = { workspace = true }

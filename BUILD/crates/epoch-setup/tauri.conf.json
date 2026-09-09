@@ -1,0 +1,43 @@
+{
+  "$schema": "../epoch-tauri/gen/schemas/config.schema.json",
+  "productName": "Epoch Setup",
+  "version": "0.1.0",
+  "identifier": "dev.epoch.setup",
+  "build": {
+    "frontendDist": "ui"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Epoch Setup",
+        "width": 900,
+        "height": 680,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data:",
+        "script-src": "'self'",
+        "connect-src": "'self' ipc: http://ipc.localhost",
+        "object-src": "'none'",
+        "frame-src": "'none'",
+        "frame-ancestors": "'none'",
+        "font-src": "'self'"
+      }
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

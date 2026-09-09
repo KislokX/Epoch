@@ -1,0 +1,72 @@
+[package]
+name = "epoch-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+# Not published. These are one product built from one workspace, not three libraries somebody
+# depends on -- and saying so is what makes a path dependency between them honest rather than a
+# wildcard into a registry.
+publish = false
+description = "The Epoch Engine. All business logic. Runs headless; the shell is only one of its front ends."
+
+[dependencies]
+epoch-kernel = { workspace = true }
+epoch-models = { workspace = true }
+epoch-assets = { workspace = true }
+epoch-secrets = { workspace = true }
+# How this Host speaks to a machine it paired with, and how it knows the machine is that machine.
+# The same crate EpochServices links, because a handshake written twice is two handshakes.
+epoch-wire = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+serde_json = { workspace = true }
+ureq = { workspace = true }
+portable-pty = { workspace = true }
+tiny_http = { version = "0.12.0", default-features = false }
+getrandom = "0.2"
+# Quest files are addressed independently of a World-wide index. UUIDv7 keeps that identity
+# collision-resistant while still sorting by creation time, and is already present transitively
+# through Tauri; declaring it here makes the storage contract explicit.
+uuid = { workspace = true }
+
+# One archive, for handing a World to somebody else.
+#
+# **Earned by a request rather than assumed.** An export was a folder first, which a World Pack
+# already is — and a folder is what another Epoch installs, so the loop closed without this. What
+# it did not do is travel: a person sending a World over a chat window sends one file.
+#
+# `deflate` only. The other backends are more code and more attack surface for a format nobody
+# has asked to read, and a GGUF does not compress anyway — what is in here is text and small
+# artwork.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# ONNX Runtime, for turning a voice into somebody else's.
+#
+# **`load-dynamic`, and it is the whole reason this dependency is acceptable.** The default
+# feature downloads and links a runtime at *build* time, so everybody who clones Epoch pays for a
+# subsystem most of them will never use, and a machine with no network cannot build the product
+# at all. With `load-dynamic` the crate compiles against nothing: the library is opened by path
+# at runtime, and Epoch fetches it into `tools/` the day somebody asks for a voice — offered,
+# never imposed, exactly like whisper.cpp and Piper before it.
+#
+# `default-features = false` is what turns the download off; it is not a tidiness flag.
+# **No `ndarray` feature, deliberately.** `ort` builds a tensor from `(shape, Vec<T>)` just as
+# happily, and taking the feature would put a second copy of `ndarray` in the tree the day this
+# crate's own version drifted from `ort`'s — two spellings of one type that agree by luck. The
+# signal work here is plain slices anyway.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic"] }
+
+[dev-dependencies]
+# Used only to assert the wire shape the presentation layer depends on.
+serde_json = { workspace = true }
+
+# DPAPI, for the secret store.
+#
+# Already in the tree by way of Tauri, so this adds no supply chain — only a feature. Hand-rolled
+# FFI would have added none at all, and was rejected: a security boundary is the last place to
+# write unsafe declarations nobody else has reviewed.
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Security_Cryptography", "Win32_Foundation"] }

@@ -1,0 +1,10 @@
+id = "record-keeping"
+name = "Record keeping"
+summary = "How this crew writes down what happened."
+method = """
+Write what happened, in the order it happened, with the evidence beside it.
+
+If something failed, record the failure as what it was. A record that keeps only the successes
+is not a record.
+"""
+requires = ["write_file"]

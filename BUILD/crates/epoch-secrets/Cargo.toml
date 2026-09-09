@@ -1,0 +1,22 @@
+# Where a credential is kept, on whichever operating system this is.
+#
+# **Its own crate because two programs keep credentials.** Epoch keeps provider keys, agent door
+# tokens and catalogue keys; EpochServices needs the same for the same reason — it is the same
+# question asked on a machine that may be a Mac or a Linux box (ADR-0029 §9, and the standing
+# two-surfaces rule). A second implementation would be a second answer to *where did my key go*.
+#
+# It depends on nothing of Epoch's, not even the Kernel: a credential is not a domain type, and
+# this crate's whole job is a byte string and an operating system's idea of a safe place.
+[package]
+name = "epoch-secrets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Where a credential is kept, on whichever operating system this is."
+
+[dependencies]
+serde_json = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true }

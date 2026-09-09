@@ -1,0 +1,36 @@
+# What a machine can run, and what a model costs to run there.
+#
+# **Its own crate because two programs ask the same question.** Epoch's Models Workshop asks it
+# about the machine Epoch is on; EpochServices asks it about the machine lending a graphics card
+# — and that second program may not link `epoch-engine` (ADR-0029 §9), because doing so would put
+# Quests, Chronicles, Knowledge and Trust inside a program that must own none of them.
+#
+# The alternative was a second copy of weighing, searching and pulling. Four copies of one
+# decision is what `agentLink` cost the day it was found; two is where that starts.
+#
+# It depends on nothing of Epoch's — not even the Kernel. There is no domain type here: a model's
+# size is a fact about a file, and a graphics card is a fact about a machine.
+[package]
+name = "epoch-models"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "What a machine can run, and what a model costs to run there."
+# **Not publishable, and it is the path dependency that says so.** This crate reaches
+# `epoch-assets` by path, which crates.io does not accept — so `publish = true` would be a claim
+# that is false today rather than a plan for tomorrow. `cargo deny` reads it exactly that way:
+# `allow-wildcard-paths` covers a private crate and refuses to cover a public one. The two
+# sibling crates that share a program with EpochServices (`epoch-assets`, `epoch-secrets`) depend
+# on nothing of Epoch's, so they stay publishable and are left alone.
+publish = false
+
+[dependencies]
+# **The workflow reader.** `comfy` compiles what `epoch-assets` parsed and hands it to a
+# server; the parser itself still never opens a socket.
+epoch-assets = { workspace = true }
+base64 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+ureq = { workspace = true }

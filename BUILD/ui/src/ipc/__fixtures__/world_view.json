@@ -1,0 +1,145 @@
+{
+  "packName": "Default World",
+  "map": {
+    "width": 1920.0,
+    "height": 1080.0,
+    "terrain": [],
+    "routes": []
+  },
+  "places": [
+    {
+      "id": "tower",
+      "concept": "research_lab",
+      "title": "Tower",
+      "subtitle": null,
+      "isPlaceholder": false,
+      "placement": {
+        "x": 320.0,
+        "y": 240.0,
+        "footprint": 90.0,
+        "zOrder": 0
+      },
+      "marks": [
+        {
+          "role": "body",
+          "renderer": "sprite",
+          "supported": true,
+          "asset": "data:image/png;base64,iVBORw0KGgo=",
+          "scale": 1.0,
+          "anchor": [
+            0.5,
+            1.0
+          ],
+          "shape": []
+        },
+        {
+          "role": "body",
+          "renderer": "animated_sprite",
+          "supported": true,
+          "asset": "data:image/png;base64,iVBORw0KGgo=",
+          "scale": 1.0,
+          "anchor": [
+            0.5,
+            1.0
+          ],
+          "shape": [],
+          "frames": {
+            "columns": 4,
+            "rows": 4,
+            "count": 16,
+            "milliseconds": 120,
+            "directions": [
+              "south",
+              "west",
+              "east",
+              "north"
+            ]
+          }
+        }
+      ],
+      "anchors": []
+    }
+  ],
+  "characters": [
+    {
+      "id": "mage",
+      "name": "Mage",
+      "archetype": "researcher",
+      "home": "tower",
+      "place": "tower",
+      "activity": "reading",
+      "action": "idle",
+      "class": "idle",
+      "mark": {
+        "role": "body",
+        "renderer": "sprite",
+        "supported": true,
+        "asset": "data:image/png;base64,iVBORw0KGgo=",
+        "scale": 1.0,
+        "anchor": [
+          0.5,
+          1.0
+        ],
+        "shape": []
+      },
+      "icon": {
+        "role": "body",
+        "renderer": "sprite",
+        "supported": true,
+        "asset": "data:image/png;base64,iVBORw0KGgo=",
+        "scale": 1.0,
+        "anchor": [
+          0.5,
+          1.0
+        ],
+        "shape": []
+      },
+      "actions": {
+        "walk": {
+          "role": "body",
+          "renderer": "animated_sprite",
+          "supported": true,
+          "asset": "data:image/png;base64,iVBORw0KGgo=",
+          "scale": 1.0,
+          "anchor": [
+            0.5,
+            1.0
+          ],
+          "shape": [],
+          "frames": {
+            "columns": 4,
+            "rows": 4,
+            "count": 16,
+            "milliseconds": 120,
+            "directions": [
+              "south",
+              "west",
+              "east",
+              "north"
+            ]
+          }
+        }
+      },
+      "journey": {
+        "from": "tower",
+        "to": "library",
+        "progress": 0.4,
+        "speed": 60.0,
+        "etaSeconds": 6.0,
+        "facing": "east"
+      },
+      "routine": [
+        {
+          "activity": "reading",
+          "seconds": 30,
+          "place": "library"
+        }
+      ],
+      "speaksWith": "es_ES-davefx-medium",
+      "soundsLike": {
+        "voice": "pato",
+        "semitones": 12.0
+      }
+    }
+  ]
+}

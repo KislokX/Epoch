@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/epoch-kernel",
+    "crates/epoch-models",
+    "crates/epoch-assets",
+    "crates/epoch-secrets",
+    "crates/epoch-wire",
+    "crates/epoch-engine",
+    "crates/epoch-tauri",
+    "crates/epoch-setup",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+# What the code actually requires. It said 1.80 while using `is_none_or`, stable since 1.82 --
+# a build constraint that is documented and wrong is worse than an undocumented one, because
+# somebody trusts it.
+# **1.90, because that is what the tree actually needs.** It has been wrong twice now, the same
+# way each time: it said 1.82 while `image 0.25` and `egui 0.33` needed 1.88, and then 1.88
+# while `ordered-float 5.5.0` -- which arrives through `wgpu-hal -> wgpu -> polyscope` -- needs
+# 1.90. `cargo +1.88.0 check --workspace --locked` refuses the tree and names it.
+#
+# The second time is the interesting one: the CI job that exists to prove this number has never
+# run, because there is no remote yet, so the fix that added the gate did not fix the claim. A
+# check nobody has executed is a claim wearing a check's clothes.
+rust-version = "1.90"
+
+[workspace.dependencies]
+epoch-kernel = { path = "crates/epoch-kernel" }
+epoch-models = { path = "crates/epoch-models" }
+epoch-assets = { path = "crates/epoch-assets" }
+epoch-secrets = { path = "crates/epoch-secrets" }
+epoch-wire = { path = "crates/epoch-wire" }
+serde = { version = "1", features = ["derive"] }
+# The one place unsafe lives: DPAPI, for the credential store.
+windows-sys = { version = "0.59", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_Storage_FileSystem"] }
+# **Object keys keep the order they were written in.**
+#
+# Not a preference. ComfyUI declares what a growing setting adds as a nested object — `width,
+# height, crop` — and their order *is* the order their values are saved in. serde_json's default
+# map is a BTreeMap, which sorts them to `crop, height, width` and silently misreads every one.
+#
+# The same trap cost a whole afternoon one level up, where the server publishes `input_order` and
+# Epoch could ask. Here nothing publishes it, so the parser has to stop destroying it.
+serde_json = { version = "1", features = ["preserve_order"] }
+base64 = "0.22"
+# A file is understood from its bytes, and a catalogue is asked with the hash of them
+# (ADR-0032). SHA-256 because that is what Civitai indexes by.
+sha2 = "0.10"
+# **TLS between two machines, and the identity that makes it mean something.** `rustls` is
+# already in this tree by way of `ureq`; naming it here makes the version one fact rather than
+# two. `rcgen` writes the self-signed certificate a machine is known by — there is no authority
+# to ask on somebody's home network, so the certificate is the machine's own and the *fingerprint*
+# is what is exchanged at pairing.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+rustls-pki-types = "1"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"] }
+toml = "0.8"
+thiserror = "2"
+# The HTTP client for Providers.
+#
+# `ureq` rather than `reqwest`: blocking, so the Engine stays synchronous and needs no async
+# runtime of its own. A turn is one call on one thread, and streaming NDJSON is reading lines.
+# The choice is contained behind the `Provider` trait, so trading it for an async client later
+# costs exactly one file.
+ureq = { version = "2", features = ["json", "tls"] }
+uuid = { version = "1", features = ["v7"] }
+# A real terminal, not a pipe.
+#
+# `Command` with piped stdio is not a terminal: a program asks whether it is talking to one, and
+# an OAuth wizard that finds it is not stops prompting, stops colouring, and buffers its output
+# until it exits. The whole point of this feature is the wizard that asks for a Client ID, so a
+# pseudo-terminal is the requirement rather than a nicety. On Windows this is ConPTY.
+portable-pty = "0.9"

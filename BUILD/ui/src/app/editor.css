@@ -1,0 +1,1239 @@
+/*
+ * THE WORLD EDITOR — the blue-metal console (ADR-0028).
+ *
+ * The reference design arrived as Tailwind utilities over shadcn primitives. This is the same
+ * design system written as plain CSS, because that is what the rest of Epoch is: adding a CSS
+ * framework and a component library so one screen could be styled would make the framework the
+ * standard everywhere else by default, which is a decision that deserves to be made on purpose
+ * rather than inherited from an import.
+ *
+ * Two other translations were deliberate:
+ *
+ * - **Fonts are the ones already bundled.** The design asked for VT323 from a CDN. A desktop
+ *   application may not reach the network to render its own first frame, so the terminal face
+ *   is IBM Plex Mono — self-hosted, already loaded, and the face the rest of Epoch reads in.
+ *   Press Start 2P was already bundled for the bridge, so the pixel titling is exact.
+ *
+ * - **Colours are literal here rather than tokens.** The World Pack owns the *World's* visual
+ *   identity (ADR-0016); the editor is a tool the user operates, not a place they inhabit, and
+ *   a pack must not be able to restyle the instrument panel it is being edited with.
+ */
+
+/* ------------------------------------------------------------------ tokens */
+
+.wed {
+  --ed-ink: #0a0f1d;
+  --ed-panel: #263257;
+  --ed-panel-lit: #4b5c93;
+  --ed-panel-shade: #131a30;
+  --ed-fg: #dfe9ff;
+  --ed-quiet: #92a4c8;
+  --ed-gold: #ffd76a;
+  --ed-gold-dim: #b9903a;
+  --ed-cyan: #7ce8ff;
+  --ed-leaf: #6ee7a0;
+  --ed-warn: #ff9d5c;
+  --ed-danger: #ff7a7a;
+
+  --ed-pixel: "Press Start 2P", monospace;
+  --ed-term: "IBM Plex Mono", ui-monospace, monospace;
+
+  /*
+    The editor *is* the screen, so it takes its own height rather than being pinned to
+    something else's corners. It was `position: absolute; inset: 0` when it was a panel over
+    the World, which made its layout depend on which ancestor happened to be positioned —
+    `relative` here only so the naming dialog has something to fill.
+  */
+  position: relative;
+  height: 100%;
+  width: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 8px;
+  background: #141b33;
+  color: var(--ed-fg);
+  font-family: var(--ed-term);
+  overflow: hidden;
+
+  /*
+    Immersion leak, the same one `world.css` fixes for the running World — and it came back the
+    moment a second surface existed, because the fix was written on the *stage* rather than on
+    the idea. An instrument panel is not a document: dragging across it should move the World or
+    a building, never paint a text selection across the buildings.
+
+    On the whole editor rather than only the map, because a caret dragged across the crew list
+    is the same lie about what this screen is.
+  */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Except where there genuinely is text to edit. A field the user cannot select inside is
+   broken in a way nobody would connect to a rule about immersion. */
+.wed input,
+.wed textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/*
+ * Scanlines over everything, and over nothing interactive.
+ *
+ * The same lesson the HUD taught: a full-bleed overlay that takes pointer events swallows the
+ * surface underneath, and whether it does is decided by which rule comes last in the file.
+ * `pointer-events: none` states it rather than relying on ordering.
+ */
+.wed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0.32;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(10, 15, 29, 0.5),
+    rgba(10, 15, 29, 0.5) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* ------------------------------------------------------------- 9-slice look */
+
+/*
+ * A raised panel. The four insets are the bevel: light on top and left, shadow on right and
+ * bottom, hard ink outline around the whole thing. That is what makes a flat colour read as a
+ * moulded plastic console rather than a div.
+ */
+.pxpanel {
+  background: linear-gradient(
+    180deg,
+    #2f3d68 0%,
+    var(--ed-panel) 42%,
+    #1d2645 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px var(--ed-ink),
+    inset 0 2px 0 0 #5d70ab,
+    inset 2px 0 0 0 #3f4f83,
+    inset -2px 0 0 0 var(--ed-panel-shade),
+    inset 0 -2px 0 0 var(--ed-panel-shade),
+    0 0 0 2px var(--ed-ink);
+}
+
+/* A recessed well: where readings and inputs live. The bevel is inverted. */
+.pxinset {
+  background: #101733;
+  box-shadow:
+    inset 2px 2px 0 0 var(--ed-panel-shade),
+    inset -1px -1px 0 0 #3b4a7d,
+    0 0 0 1px var(--ed-ink);
+}
+
+/* ---------------------------------------------------------------- controls */
+
+.pxbtn {
+  font-family: var(--ed-pixel);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 7px 10px 6px;
+  border: 0;
+  color: var(--ed-fg);
+  cursor: pointer;
+  background: linear-gradient(180deg, #55679f 0%, var(--ed-panel) 55%, #1c2444 100%);
+  box-shadow:
+    inset 0 1px 0 0 #7b8cc4,
+    inset 0 -2px 0 0 var(--ed-panel-shade),
+    0 0 0 1px var(--ed-ink);
+  transition:
+    transform 60ms steps(2),
+    filter 80ms linear;
+}
+
+.pxbtn:hover:not(:disabled) {
+  filter: brightness(1.18);
+}
+
+.pxbtn:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.92);
+}
+
+/*
+ * A cold control (Launcher rule, generalised).
+ *
+ * Not hidden and not removed: it keeps its frame and loses its light, so the shape of the tool
+ * is honest about what it will eventually do. Every one of these carries a `title` naming the
+ * subsystem that will light it up — a dim button with no explanation is just a broken one.
+ */
+.pxbtn:disabled {
+  cursor: not-allowed;
+  color: #5f6d92;
+  background: linear-gradient(180deg, #2a3457 0%, #212a49 55%, #1a2240 100%);
+  box-shadow:
+    inset 0 1px 0 0 #38446e,
+    inset 0 -2px 0 0 var(--ed-panel-shade),
+    0 0 0 1px var(--ed-ink);
+}
+
+.pxbtn--on {
+  color: var(--ed-ink);
+  background: linear-gradient(180deg, #9df1ff 0%, var(--ed-cyan) 60%, #3f93a8 100%);
+  box-shadow:
+    inset 0 1px 0 0 #ffffff,
+    inset 0 -2px 0 0 #2f6f80,
+    0 0 0 1px var(--ed-ink),
+    0 0 10px -2px var(--ed-cyan);
+}
+
+.pxbtn--gold {
+  color: #2a1f06;
+  background: linear-gradient(180deg, #ffe89c 0%, var(--ed-gold) 45%, var(--ed-gold-dim) 100%);
+  box-shadow:
+    inset 0 1px 0 0 #fff6d4,
+    inset 0 -2px 0 0 #7d6021,
+    0 0 0 1px var(--ed-ink);
+}
+
+.pxbtn--danger {
+  color: var(--ed-danger);
+}
+
+/* --------------------------------------------------------------- lettering */
+
+.pxtitle {
+  font-family: var(--ed-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ed-gold);
+  text-shadow: 1px 1px 0 var(--ed-ink);
+  margin: 0;
+}
+
+.pxlabel {
+  font-family: var(--ed-pixel);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ed-quiet);
+}
+
+.pxterm {
+  font-family: var(--ed-term);
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--ed-cyan);
+}
+
+/* ------------------------------------------------------------------ panels */
+
+.pxsection {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pxsection__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 2px solid rgba(10, 15, 29, 0.6);
+}
+
+.pxsection__head > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The gold pip. Purely a mark that this is a titled instrument, not a decoration with meaning. */
+.pxsection__pip {
+  width: 6px;
+  height: 6px;
+  background: var(--ed-gold);
+  flex: none;
+}
+
+.pxsection__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* ------------------------------------------------------------------ fields */
+
+.pxfield {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.pxfield > div {
+  margin-top: 4px;
+}
+
+.pxinput {
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  outline: none;
+  font-family: var(--ed-term);
+  font-size: 13px;
+  color: var(--ed-fg);
+  background: #101733;
+  box-shadow:
+    inset 2px 2px 0 0 var(--ed-panel-shade),
+    inset -1px -1px 0 0 #3b4a7d,
+    0 0 0 1px var(--ed-ink);
+}
+
+.pxinput:focus {
+  box-shadow:
+    inset 2px 2px 0 0 var(--ed-panel-shade),
+    0 0 0 1px var(--ed-gold);
+}
+
+.pxinput--mono,
+.pxinput--read {
+  color: var(--ed-cyan);
+}
+
+/* An identity is shown, never edited — that is the whole point of it (ADR-0028). */
+.pxinput--read {
+  cursor: default;
+  color: var(--ed-quiet);
+}
+
+.pxslider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pxslider input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  appearance: none;
+  background: var(--ed-panel-shade);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ed-ink);
+}
+
+.pxslider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 14px;
+  background: var(--ed-gold);
+  box-shadow: 0 0 0 1px var(--ed-ink);
+  cursor: pointer;
+}
+
+.pxslider b {
+  flex: none;
+  width: 58px;
+  text-align: right;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ed-cyan);
+}
+
+.pxrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(75, 92, 147, 0.3);
+}
+
+.pxrow > span:last-child {
+  font-family: var(--ed-term);
+  font-size: 13px;
+  text-align: right;
+  color: var(--ed-fg);
+}
+
+.pxchip {
+  display: inline-block;
+  padding: 0 6px;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ed-cyan);
+  border: 1px solid rgba(124, 232, 255, 0.5);
+  background: none;
+  cursor: default;
+}
+
+.pxchip--gold {
+  color: var(--ed-gold);
+  border-color: rgba(255, 215, 106, 0.6);
+}
+
+.pxchip--leaf {
+  color: var(--ed-leaf);
+  border-color: rgba(110, 231, 160, 0.6);
+}
+
+.pxchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.pxgrid {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+
+.pxgrid--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.pxgrid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.pxgrid__wide {
+  grid-column: 1 / -1;
+}
+
+.pxnote {
+  margin: 0;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  color: var(--ed-quiet);
+}
+
+/*
+ * What is measured but empty, said in words.
+ *
+ * The Launcher's rule: a reading with nothing behind it reads as zero and names the subsystem
+ * that will fill it. Never a plausible-looking number.
+ */
+.pxcold {
+  margin: 4px 0 0;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  color: #6f7fa6;
+}
+
+.pxwarn {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  color: var(--ed-warn);
+  background: rgba(255, 157, 92, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 157, 92, 0.4);
+}
+
+.pxfail {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  border: 0;
+  padding: 6px 8px;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  text-align: left;
+  color: var(--ed-danger);
+  background: rgba(255, 122, 122, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 122, 122, 0.4);
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ top bar */
+
+.wed__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+}
+
+.wed__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.wed__mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  color: var(--ed-gold);
+}
+
+.wed__ver {
+  font-family: var(--ed-term);
+  font-size: 12px;
+  color: var(--ed-quiet);
+  line-height: 1;
+}
+
+.wed__world {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.wed__world b {
+  font-family: var(--ed-term);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ed-cyan);
+}
+
+/*
+ * The saved lamp.
+ *
+ * There is no SAVE button, because there is nothing to save: every edit writes `places.toml`
+ * and re-reads it. A SAVE button in an editor that already wrote would imply work at risk that
+ * is not at risk, which is a worse lie than a missing button. The lamp says what is true —
+ * this is on disk — and it is lit from the write actually having happened.
+ */
+.wed__saved {
+  font-size: 10px;
+  color: var(--ed-leaf);
+}
+
+.wed__saved--pending {
+  color: var(--ed-gold);
+}
+
+.wed__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* -------------------------------------------------------------------- body */
+
+.wed__body {
+  display: flex;
+  min-height: 0;
+  gap: 8px;
+}
+
+.wed__rail {
+  display: flex;
+  width: 62px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 0;
+}
+
+.wed__mode {
+  display: flex;
+  height: 52px;
+  width: 46px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.wed__mode span:first-child {
+  font-family: var(--ed-term);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.wed__mode span:last-child {
+  font-size: 6px;
+}
+
+.wed__left {
+  display: flex;
+  width: 286px;
+  flex: none;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wed__centre {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 4px;
+}
+
+/*
+ * The inspector column.
+ *
+ * **It scrolls, and it did not until a tall panel arrived.** Measured in the window with LOOK
+ * open: 821px of column holding 1149px of content, `overflow: visible`, and `.wed` clipping the
+ * difference — so ROADS, LAYERS and TOOL were simply not there, with nothing on screen saying
+ * so. A layout that works until there are two of something.
+ *
+ * A scrollbar here is not the leak it would be over the World. That rule is about immersion: a
+ * drawn widget over a living place reminds you that you are inside software. The editor *is*
+ * software and says so in its own title bar — and content clipped away with no indication is
+ * strictly worse than a visible way to reach it.
+ */
+.wed__right {
+  display: flex;
+  width: 300px;
+  flex: none;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+/* Panels keep their own height inside a scrolling column. Without this they give way first, and
+   the column never overflows because its children were squeezed instead — which is how a
+   section ends up 16px tall holding 76px of content, measured in the same session. */
+.wed__right > * {
+  flex: none;
+}
+
+/* ------------------------------------------------------------------ canvas */
+
+/*
+ * The stage inside the editor is the *same* World renderer the running World uses — same
+ * projection, same Places, same marks, same camera. A second renderer would be free to
+ * disagree with the World about what the World looks like, and eventually would: you would be
+ * arranging a building that renders differently the moment you press PLAY.
+ */
+.wed__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wed__hint {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 5;
+  padding: 5px 8px;
+  pointer-events: none;
+}
+
+.wed__hint span {
+  margin-left: 8px;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  color: var(--ed-quiet);
+}
+
+.wed__minimap {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 5;
+  padding: 6px;
+}
+
+.wed__tools {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+}
+
+/* ---------------------------------------------------------------- the crew */
+
+/*
+ * A routine, and where each step of it happens.
+ *
+ * One row per step: what they do, and the building it happens in. The activity is fixed here
+ * because it belongs to the character and is edited with them (ADR-0028) — this panel decides
+ * only the half that belongs to this World.
+ */
+.wed__routine {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.wed__routine li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+/* The activity can be a sentence somebody typed; it may not push the picker off the panel. */
+.wed__routine-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.wed__crew {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wed__soul {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  background: #101733;
+  box-shadow:
+    inset 2px 2px 0 0 var(--ed-panel-shade),
+    inset -1px -1px 0 0 #3b4a7d,
+    0 0 0 1px var(--ed-ink);
+}
+
+.wed__soul:hover {
+  filter: brightness(1.25);
+}
+
+.wed__soul--on {
+  color: var(--ed-ink);
+  background: linear-gradient(180deg, #9df1ff 0%, var(--ed-cyan) 60%, #3f93a8 100%);
+  box-shadow:
+    inset 0 1px 0 0 #ffffff,
+    inset 0 -2px 0 0 #2f6f80,
+    0 0 0 1px var(--ed-ink);
+}
+
+.wed__soul > span {
+  min-width: 0;
+  flex: 1;
+}
+
+.wed__soul .pxtitle {
+  display: block;
+  line-height: 15px;
+  color: inherit;
+}
+
+.wed__soul em,
+.wed__soul i {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--ed-term);
+  font-size: 12px;
+  line-height: 15px;
+  font-style: normal;
+  opacity: 0.8;
+}
+
+.wed__soul i {
+  font-style: italic;
+  opacity: 0.68;
+}
+
+/*
+ * A face, or a visible stand-in.
+ *
+ * Never a generated likeness (ADR-0024). Somebody with no portrait gets their initial in a
+ * frame — a label, unmistakably not a face — rather than a silhouette that pretends to be one.
+ */
+.wed__face {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  overflow: hidden;
+  font-family: var(--ed-pixel);
+  font-size: 10px;
+  color: var(--ed-quiet);
+}
+
+.wed__face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* --------------------------------------------------------------- status bar */
+
+.wed__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px;
+}
+
+.wed__cell {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-right: 12px;
+  border-right: 1px solid rgba(75, 92, 147, 0.4);
+}
+
+.wed__cell > span:last-child {
+  font-family: var(--ed-term);
+  font-size: 13px;
+  color: var(--ed-cyan);
+}
+
+.wed__cell--gold > span:last-child {
+  color: var(--ed-gold);
+}
+
+.wed__warnings {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ed-term);
+  font-size: 13px;
+}
+
+.wed__warnings b {
+  font-weight: 400;
+  color: var(--ed-warn);
+}
+
+.wed__warnings em {
+  font-style: normal;
+  color: var(--ed-leaf);
+}
+
+/* ------------------------------------------------------------ editor marks */
+
+/*
+ * What the editor adds *around* a Place, never inside it (ADR-0022).
+ *
+ * A World's artwork may be a PNG, an SVG, pixel sprites or a format that does not exist yet,
+ * and none of them can be assumed to contain a highlightable door. So selection is a ring on
+ * the ground, and a residence is a line between two buildings — drawn by the editor, over
+ * artwork it never has to understand.
+ */
+.wed-ring {
+  fill: none;
+  stroke: var(--ed-cyan);
+  stroke-width: 3;
+  stroke-dasharray: 10 7;
+  pointer-events: none;
+}
+
+.wed-ring--on {
+  stroke: var(--ed-gold);
+  stroke-width: 4;
+}
+
+.wed-link {
+  fill: none;
+  stroke: var(--ed-leaf);
+  stroke-width: 3;
+  stroke-dasharray: 6 8;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.wed-count {
+  font-family: var(--ed-term);
+  font-size: 22px;
+  fill: var(--ed-cyan);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.wed-ghost {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* The authoring grid. Faint on purpose: it is a straightedge, not part of the World. */
+.wed-grid line {
+  stroke: rgba(124, 232, 255, 0.16);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------- naming a place */
+
+/*
+ * Asked once, right after a building is put down, because naming it is the next thing anybody
+ * wants and hunting for the field is not. Always skippable — LATER leaves it called what the
+ * Engine called it, which is a legal state rather than an unfinished one.
+ */
+.wed__naming {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 15, 29, 0.62);
+}
+
+/* --------------------------------------------------------------- scrollbars */
+
+.wed .pxsection__body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wed .pxsection__body::-webkit-scrollbar-track {
+  background: var(--ed-panel-shade);
+}
+
+.wed .pxsection__body::-webkit-scrollbar-thumb {
+  background: var(--ed-panel-lit);
+  border: 1px solid var(--ed-ink);
+}
+
+/* -------------------------------------------------------------- road list */
+
+/* A route can cross another route. The list is therefore the precise, keyboard-reachable place
+   to re-trace or remove *this* one, while the stage remains where its geometry is authored. */
+.wed__roads {
+  display: grid;
+  gap: 5px;
+}
+
+.wed__road {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+}
+
+.wed__road-trace {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid rgba(124, 232, 255, 0.38);
+  color: var(--ed-fg);
+  background: rgba(10, 15, 29, 0.45);
+  cursor: pointer;
+  text-align: left;
+  font: 400 11px/1.35 var(--ed-term);
+}
+
+.wed__road-trace:hover {
+  color: var(--ed-gold);
+  border-color: var(--ed-gold);
+}
+
+.wed__road-trace span,
+.wed__road-trace small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wed__road-trace b { color: var(--ed-cyan); }
+.wed__road-trace small { margin-top: 2px; color: var(--ed-quiet); font-size: 10px; }
+.wed__road-remove { min-width: 30px; padding: 0 7px; font-size: 12px; }
+
+/*
+ * A select is a native control and inherits none of the panel's look. Styled to match rather
+ * than replaced with a custom listbox: a native select is keyboard-navigable, screen-reader
+ * addressable and correct on every platform for free, and none of that is worth a bevel.
+ */
+.wed select.pxinput {
+  appearance: none;
+  cursor: pointer;
+}
+
+.wed select.pxinput option {
+  background: #101733;
+  color: var(--ed-fg);
+}
+
+
+/*
+  A label acting as a button cannot be `:disabled` — the browser only knows that about the input
+  it points at. Without this, IMPORT looked ordinary, opened nothing, and taught people that the
+  feature was broken.
+*/
+.btn--off {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* What is missing, said where the button is. Not an error: nothing has gone wrong yet. */
+.drop__why {
+  margin: 5px 0 0;
+  font: 400 10px var(--ep-body, monospace);
+  color: var(--ep-parchment, #f4e6c4);
+  opacity: 0.6;
+}
+
+
+/*
+  The verdict, as a word. "Will it run here?" is the question the Workshop's field asks, and the
+  answer used to arrive at the end of a sentence that began with a filename.
+*/
+.mws__runs {
+  padding: 1px 5px;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+}
+.mws__runs--yes {
+  color: var(--ep-good, #7fd08a);
+  box-shadow: 0 0 0 1px currentColor;
+}
+.mws__runs--no {
+  color: var(--ep-warn, #e8b74a);
+  box-shadow: 0 0 0 1px currentColor;
+}
+/* Unknown is not a failure, and it must not wear a failure's colour. */
+.mws__runs--unknown {
+  color: var(--ep-parchment, #f4e6c4);
+  opacity: 0.55;
+  box-shadow: 0 0 0 1px currentColor;
+}
+
+
+/* The download, and the sentence about the runtimes that cannot be told to fetch one. */
+.mws__get {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 7px 0 0;
+}
+
+/*
+  MORE, and how much has been fetched. The count is deliberately about what arrived, never about
+  how much exists: nobody tells us that number, so nobody may state it.
+*/
+.mws__more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  margin-top: 7px;
+}
+
+
+/*
+  A refusal, beside the button that was refused.
+
+  The roster's notice is a thousand lines above an open editor — off screen entirely — so a save
+  that was refused read as one that had worked and then reverted on its own. The second time this
+  shape has cost an evening; a control's answer belongs beside the control.
+*/
+.cedit__refused {
+  margin: 8px 0 0;
+  /*
+    **Louder than a notice, because it is an answer rather than an aside.**
+
+    A general notice is ambient — it is on screen whether or not anybody did anything. This one
+    exists only because somebody pressed SAVE and was told no, and at the shared 11.5px in
+    `rgba` beige it was reported as barely readable. A refusal nobody reads is the same defect
+    as a refusal nobody sees, one step later.
+  */
+  font: 500 13px/1.55 var(--lx-sans);
+  color: #ffd489;
+  background: rgba(232, 183, 74, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.65);
+  padding: 10px 12px;
+}
+
+
+/*
+  A repository's quantisations, laid out the way its own page lays them out: a width on the left,
+  the versions of that width across.
+
+  It is the one place in the Workshop where a wide row is right — twenty-seven variants in a
+  column would be a column nobody reads, and the comparison people are actually making is
+  *within* a width.
+*/
+.mvar {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 4px 14px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(232, 183, 74, 0.22);
+}
+.mvar__row {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.mvar__bits {
+  font: 400 9px var(--ep-body, monospace);
+  letter-spacing: 1.2px;
+  color: var(--ep-gold, #e8b74a);
+  opacity: 0.75;
+}
+.mvar__quants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/*
+  Each chip carries the verdict, because a name and a size are available on Hugging Face's own
+  page and the reason to have this inside Epoch is knowing which of them this machine can run.
+*/
+.mvar__quant {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 6px;
+  border: 0;
+  cursor: pointer;
+  background: rgba(6, 5, 11, 0.5);
+  color: var(--ep-parchment, #f4e6c4);
+  font: 400 10px var(--ep-body, monospace);
+  box-shadow: inset 0 0 0 1px rgba(120, 105, 150, 0.35);
+}
+.mvar__quant span {
+  opacity: 0.55;
+}
+.mvar__quant:hover {
+  box-shadow: inset 0 0 0 1px var(--ep-gold, #e8b74a);
+}
+
+/* Runs here. */
+.mvar__quant--true {
+  box-shadow: inset 0 0 0 1px rgba(127, 208, 138, 0.55);
+}
+/* Too big — dimmed rather than hidden: it is still a real thing somebody may want. */
+.mvar__quant--false {
+  opacity: 0.45;
+}
+/* No reading to compare against. Not a failure, and it must not wear a failure's colour. */
+.mvar__quant--unknown {
+  box-shadow: inset 0 0 0 1px rgba(120, 105, 150, 0.35);
+}
+
+/*
+  Not a version of the model. `MTP` is a module published beside it — 1.37 GB next to a 27B — and
+  without this the cheapest-looking entry in the 4-bit row is one that is not the model at all.
+*/
+.mvar__tag {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 0 3px;
+  color: var(--ep-gold, #e8b74a);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/*
+  A different mark, because it means a different thing. `.mvar__tag` says *a module, not the
+  model*; this says *the model, with its own prediction head*. Two marks that looked alike on one
+  list is how somebody downloads the wrong eighteen gigabytes.
+*/
+.mvar__head {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 0 3px;
+  color: var(--ep-gold, #e8b74a);
+  background: rgba(232, 183, 74, 0.14);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* A download that arrives in parts is worth knowing about before it starts. */
+.mvar__parts {
+  font-style: normal;
+  font-size: 8px;
+  opacity: 0.45;
+}
+
+/* An opened result takes the full width of the grid rather than staying in its column. */
+.mws__list li.mws__open {
+  grid-column: 1 / -1;
+  display: block;
+}
+
+/* ------------------------------------------------------------------ LOOK
+ *
+ * Where a window is drawn while somebody chooses its corner insets.
+ *
+ * **Two sizes, and that is the whole design.** A nine-slice is only ever wrong at one of them:
+ * an inset that looks right on a small box eats the face of a wide one, and one that suits a
+ * wide box leaves a small one with corners that touch. Four numbers nobody can pick in the
+ * abstract become obvious against both at once.
+ *
+ * Drawn by `Frame` itself rather than by anything here \u2014 a second nine-slice implementation
+ * would eventually disagree with the real window, and being trustworthy is what this is for.
+ */
+.look__stage {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 10px;
+  /* A neutral ground: a preview on the panel's own colour would flatter a frame that does not
+     actually contrast with anything. */
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 var(--px, 2px) rgba(255, 255, 255, 0.06);
+}
+
+.look__demo {
+  min-width: 0;
+  pointer-events: none;
+}
+
+.look__demo--wide { height: 74px }
+.look__demo--tall { width: 132px; height: 92px }
+
+.look__demo > .frame__body {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 6px;
+}
+
+.look__words {
+  margin: 0;
+  font: 400 9px var(--lx-pixel, monospace);
+  color: rgba(239, 232, 218, 0.62);
+  text-align: center;
+}
+
+/* A voice: hear it, then replace it. Two controls on one row because they are one decision. */
+.look__heading {
+  margin: 14px 0 4px;
+  font: 400 10px var(--lx-pixel, monospace);
+  color: var(--ep-gold, #e8b74a);
+  letter-spacing: 0.06em;
+}
+
+.look__voice {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.look__voice > .pxbtn:first-child { flex: none; width: 34px }
+.look__voice > *:last-child { flex: 1; min-width: 0 }

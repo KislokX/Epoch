@@ -1,0 +1,4 @@
+# This tree is authored on Windows and every file already has CRLF endings. Normalising on
+# commit would rewrite all 301 files once and then fight every editor forever, so line endings
+# are left exactly as they are on disk.
+* -text

@@ -1,0 +1,68 @@
+# A World Pack for the tests, and only for the tests.
+#
+# ## Why this exists
+#
+# Two claims of the architecture are about **artwork travelling**: that an Asset reaches the
+# renderer as a `data:` URI and never as markup (ADR-0020), and that a pack can dress Epoch's
+# own window with a nine-slice skin (ADR-0016). Both were asserted against the artwork the
+# product shipped -- so the artwork was load-bearing as *evidence*, not as decoration, and
+# taking it out of the repository took the proof with it.
+#
+# The proof belongs here instead. `assets/building.png` and `assets/window.png` are 24 and 32
+# pixels square, drawn for these tests, and are nobody's content. The shipped Worlds now carry
+# no artwork at all -- which is a state the Engine is built for and says so: a World with no
+# artwork is complete rather than unfinished.
+
+[pack]
+id = "fixture"
+name = "Fixture World"
+version = "0.1.0"
+kind = "TEST FIXTURE"
+description = "Not a World anybody enters. It exists so that two architectural claims about artwork stay provable without shipping any."
+
+[license]
+type = "CC0-1.0"
+holder = "Epoch"
+url = "https://creativecommons.org/publicdomain/zero/1.0/"
+
+[map.size]
+width = 100
+height = 100
+
+# One place, drawn from a sprite, because that is the claim under test.
+[places.research_lab]
+name = "The Laboratory"
+at = [50, 50]
+
+[[places.research_lab.marks]]
+key = "shadow"
+role = "shadow"
+renderer = "shape"
+shape = [ { form = "ellipse", tone = "shadow", x = 0.0, y = 0.0, w = 0.6, h = 0.16 } ]
+
+[[places.research_lab.marks]]
+key = "body"
+role = "visual"
+renderer = "sprite"
+asset = "assets/building.png"
+scale = 1.7
+anchor = [0.5, 1.0]
+
+[[places.research_lab.anchors]]
+role = "spawn"
+x = 0.6
+y = 0.0
+
+[[places.research_lab.anchors]]
+role = "label"
+x = 0.0
+y = 0.42
+
+# The nine-slice skin. Every number is measured off `assets/window.png`, which is what the
+# guidance requires and what the test asserts: a bevel lit from above is not symmetric.
+[[ui]]
+concept = "ui.frame.window"
+image = "assets/window.png"
+corner = [4, 2, 6, 3]
+repeat = "stretch"
+scale = 1

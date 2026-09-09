@@ -1,0 +1,139 @@
+# What this repository is for, and what it deliberately is not.
+#
+# Everything Epoch *is* — the engine, the surfaces, the packs, the documents — is tracked. Three
+# categories are not, and each for its own reason.
+
+# ---------------------------------------------------------------------- builds
+#
+# 19 GB and reproducible from source. A build output in history makes every clone expensive and
+# every diff unreadable, and it can always be rebuilt.
+BUILD/target/
+# A second target directory, used when something has a handle on the first one and the
+# bundler cannot rewrite its NSIS staging. Same build, somewhere nothing is holding.
+BUILD/target-pack/
+BUILD/ui/dist/
+BUILD/ui/node_modules/
+# A vitest run from BUILD/ leaves its cache one level up from the one above.
+BUILD/node_modules/
+BUILD/crates/epoch-tauri/gen/schemas/
+
+# ------------------------------------------------------------------ credentials
+#
+# **Never tracked, in a private repository either.** A private repo is not a safe place for a
+# secret: it is copied to laptops, restored from backups, and shared the day it stops being
+# private. The rule is that a credential lives where it can be revoked, not where it is
+# convenient.
+#
+# `agent-token` is the legacy plaintext bearer for the local MCP door — a key to a port that can
+# run capabilities. It is migrated into DPAPI and deleted on the next opening of the door.
+#
+# `secrets.dat` is where it went, together with provider API keys: one store, encrypted for the
+# logged-in Windows account. **It is a file, and this line is why.** The paragraph above used to
+# say credentials never touch the filesystem at all — true when keys lived only in the DPAPI API,
+# and no longer true once the store became a file in the vault. Nothing was tracked in the gap,
+# but nothing was stopping it either: the working tree offered it for staging alongside the
+# ordinary vault TOML around it. Encrypted-for-this-account is not a reason to carry a credential
+# in history — it is copied to laptops, restored from backups, and shared the day the repository
+# stops being private.
+#
+# **Kept even though `BUILD/vault/` below now covers both.** Redundancy is worth having exactly
+# here: these two lines are what still stops a credential if somebody ever narrows that rule, and
+# a rule that only holds while another rule holds is not a rule about credentials.
+BUILD/vault/agent-token
+BUILD/vault/secrets.dat
+*.pem
+*.key
+.env
+.env.*
+
+# --------------------------------------------------------------------- the vault
+#
+# **Somebody's own Epoch, and never this repository's business.**
+#
+# A vault holds a person: their crew and what those characters are like, their conversations
+# word for word, the paths to their real projects, the servers they connected, the permissions
+# they have granted for good, and the encrypted store those credentials live in. None of it is
+# what a user installs, and all of it was tracked — so a clone carried one developer's face,
+# name, machine layout and standing decisions.
+#
+# This waited on two things, and both are now true.
+#
+# `paths.rs` already sends an **installed** build to `%APPDATA%\Epoch`, so nothing about the
+# product depends on a vault sitting in the source tree; that location is a development
+# convenience, which is exactly the kind of thing that should not be in history.
+#
+# And the Launcher's tests used to read this folder, which meant they measured whichever crew
+# the developer happened to have — a test that a rename could turn red. They read
+# `crates/epoch-engine/tests/fixtures/vault` now, which belongs to the tests and to nobody.
+#
+# What a *new* clone gets is an empty vault, and that is the correct first run: Epoch creates
+# what it needs and the user brings their own crew. `packs/` and `assets/` stay tracked, because
+# those genuinely are what ships.
+BUILD/vault/
+
+# ------------------------------------------------------------------ generated schemas
+#
+# Codex's app-server writes its JSON-RPC schema here when Epoch asks what it can do. 136,000
+# lines of somebody else's generated contract, regenerated on demand, and it belongs to the
+# version of the CLI installed on this machine rather than to Epoch.
+BUILD/.epoch-appserver-schema/
+
+# ------------------------------------------------------------ somebody else's code
+#
+# Reference clones of other projects. They have their own history and their own licences, and
+# vendoring them here would silently make Epoch's repository contain them.
+REPOS/
+
+# ------------------------------------------------------------------- machine noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*~
+
+# ----------------------------------------------------------------------- editors
+#
+# Obsidian's workspace state is where the panes were on one machine — noise in every diff.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Throwaway capture from browser tooling. Timestamped noise, never read twice.
+BUILD/crates/epoch-tauri/.playwright-mcp/
+
+# Third-party README files, fetched when an MCP server is installed so the crew can read what its
+# authors wrote about it. Somebody else's documentation, under somebody else's licence — it is a
+# local cache of a public document, not content this repository distributes.
+BUILD/vault/mcp-docs/
+
+# The external audit reports. Owner's decision, 2026-09-08: they stay off the repository.
+#
+# They are evidence about a moment rather than part of the product, and the first one was
+# committed before that was decided — `AUDIT-QA-2026-09-07.md` is untracked here in the same
+# change that added this rule, and the file itself is left on disk.
+#
+# What each audit *found* is not lost with them: a finding that mattered is written into the
+# code it changed, its test and its commit message, which is where somebody reading that code
+# will actually be standing.
+AUDIT-QA-*.md
+
+# Visual Studio's own local state. Binary, per machine, and it carries the paths of whoever
+# opened the solution last — it was tracked by accident rather than by decision.
+BUILD/.vs/
+
+# The Obsidian vault's configuration. The owner's editor, not the product: which plugins are on,
+# where the graph view was left. It changes every time the vault is opened, which is why it was
+# the one thing permanently dirty in `git status`.
+.obsidian/
+
+# Session handovers. Owner's decision, 2026-09-08, the same one the audit reports got.
+#
+# They are a conversation between one session and the next — true on the afternoon they were
+# written and stale by the following morning. What survives from them belongs in the code, its
+# tests and its commit messages, and `docs/Build/Handoff.md` is the one that is maintained.
+CLAUDE_NEWPLAN.MD
+CLAUDE_SUPERNEWPLAN.MD
+CLAUDEtransfer.md
+Claudetransfer8.md
+LastClaudeTransfer.md
+CODEX_NEWPLAN.MD
+docs/Build/Minecraft.md

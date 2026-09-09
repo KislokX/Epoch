@@ -1,0 +1,49 @@
+[package]
+name = "epoch-tauri"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+# Not published. These are one product built from one workspace, not three libraries somebody
+# depends on -- and saying so is what makes a path dependency between them honest rather than a
+# wildcard into a registry.
+publish = false
+description = "Desktop shell over the Epoch Engine. Translates IPC commands to engine calls and nothing more."
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# **A mesh, turned into a picture.** Nothing in a webview can display one, so Epoch renders
+# it headless from every angle and keeps a GIF beside it (`state/turntable.rs`). It brings
+# wgpu with it, which is real weight for one feature and is what a mesh costs to look at.
+polyscope-rs = "0.5"
+# Reading the `.glb` ComfyUI writes. Positions and indices, nothing else.
+gltf = "1"
+# Encoding the turn. GIF because it plays in an `<img>` and needs no muxer; PNG because
+# the same crate reads what the renderer hands back.
+image = { version = "0.25", default-features = false, features = ["gif", "png"] }
+glam = "0.29"
+epoch-engine = { path = "../epoch-engine" }
+epoch-kernel = { workspace = true }
+tauri = { version = "2", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Native folder picker, invoked from Rust only.
+#
+# Deliberately not tauri-plugin-dialog: that adds a JS API to the webview, and ADR-0024's rule
+# is that the presentation layer never gets filesystem access. This crate has no JS surface at
+# all, so the frontend still cannot open anything — it asks the shell to ask the user.
+rfd = "0.15"
+# Hand a link to the user's browser. Same bargain as `rfd`: no JS surface, so the frontend
+# cannot open anything — it asks the shell, and the shell checks first.
+opener = "0.7"
+
+[target."cfg(windows)".dependencies]
+# WebView2's own interfaces, so Epoch can answer the microphone question it asked.
+#
+# **Already in the tree** — wry pulls exactly these versions — so this adds a feature and no
+# supply chain. Pinned to what is there: a floating version would be a second copy of the COM
+# bindings the moment the two disagree, and two sets of `ICoreWebView2` do not interoperate.
+webview2-com = "=0.38.2"
+windows-core = "=0.61.2"

@@ -1,0 +1,171 @@
+# Builds EpochServices for the three operating systems it supports.
+#
+# ## Why this exists
+#
+# EpochServices is the program a *second* machine runs, and that machine usually has no Rust, no
+# Xcode and no reason to acquire either — its job is to lend a graphics card. Asking somebody to
+# install a toolchain before they can lend their own hardware is most of the friction in the
+# whole feature.
+#
+# A `.dmg` can only be produced on macOS: Tauri does not cross-compile from Windows or Linux, and
+# the bundle needs Apple's own tooling. So the machine that builds it is a macOS runner here
+# rather than a Mac somebody has to own and set up.
+#
+# ## What it does not do
+#
+# It does not sign or notarise. An unsigned `.dmg` makes macOS refuse the first launch until the
+# user opens it through **right-click → Open**, and that instruction ships with the download
+# rather than being hidden. Signing needs an Apple Developer account and secrets in this
+# repository, and neither is a decision this file should make quietly.
+#
+# What it does instead is **say what it produced**: a `SHA256SUMS` beside the bundles, so
+# somebody who downloads one can check that it is the file this job built. That is not a
+# signature and does not pretend to be — it is only worth anything because it travels a
+# different path from the file, which is why it is printed into the job log as well.
+#
+# ## And it runs the tests first
+#
+# It built a bundle without ever running the suite, so a release could be cut from a tree that
+# does not pass. The full checks live in `ci.yml`; this repeats the one that decides whether the
+# thing being shipped works.
+#
+# ## Triggered by hand
+#
+# On demand, not on every push. This compiles a webview toolkit three times; running it because
+# somebody fixed a comment would be minutes of somebody else's electricity for nothing.
+
+name: EpochServices
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "services-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  # The same rule, and this workflow needs it more: it publishes three platforms with provenance
+  # on a `services-v*` tag, and `ci.yml` is where EpochServices' formatting, lints, tests and
+  # dependency policy actually run.
+  gates:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: gates
+
+    strategy:
+      # One platform failing must not cancel the other two: a broken Linux dependency should
+      # still leave a usable .dmg to download.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+          - os: ubuntu-22.04
+            name: linux
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: read
+      # A job that only builds should not be able to write; this one signs a statement about
+      # what it built, and that needs exactly these two.
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # The webview on Linux is not part of the image. On macOS and Windows the system provides
+      # one, which is the whole reason this program has no frontend build.
+      - name: Linux webview dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+
+      # Keyed on the lock file: EpochServices is its own workspace, so Epoch's dependencies are
+      # not in this cache and must not be.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            EpochServices/target
+          key: ${{ matrix.os }}-services-${{ hashFiles('EpochServices/Cargo.lock') }}
+
+      # **Before the bundle, not after.** A release cut from a tree that does not pass is a
+      # release nobody can trust, and finding that out from the artefact is finding out too late.
+      - name: Tests
+        working-directory: EpochServices
+        run: cargo test
+
+      - name: Build the bundle
+        working-directory: EpochServices
+        run: cargo install tauri-cli --version "^2" --locked && cargo tauri build
+
+      # A checksum for every bundle, and printed into the log as well: a list that travels with
+      # the file it describes proves only that they arrived together.
+      - name: What this job produced
+        shell: bash
+        working-directory: EpochServices/target/release/bundle
+        run: |
+          find . -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.deb'             -o -name '*.AppImage' -o -name '*.rpm' \) -print0 |
+            xargs -0 -r shasum -a 256 | tee SHA256SUMS
+          cat SHA256SUMS
+
+      # **What is inside it**, which neither the checksum nor the provenance says. 294 Rust
+      # components here — the day an advisory lands on one of them, this is the difference
+      # between a `grep` and reconstructing the dependency tree of a version already downloaded.
+      #
+      # No `npm sbom` on this side: this program has no frontend of its own.
+      - name: Install the parts-list tool
+        run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+
+      - name: What is inside it
+        shell: bash
+        working-directory: EpochServices
+        run: |
+          set -euo pipefail
+          cargo cyclonedx --format json --spec-version 1.5
+          mkdir -p target/release/bundle
+          mv epoch-services.cdx.json target/release/bundle/epochservices.cargo.cdx.json
+          f=target/release/bundle/epochservices.cargo.cdx.json
+          grep -q '"bomFormat"' "$f" || { echo "not a CycloneDX document"; exit 1; }
+          echo "$f  $(grep -o '"bom-ref"' "$f" | wc -l) entries"
+
+      # **What a signature would have bought, minus the part that costs money.** Not *who made
+      # it* — that is a certificate, and this project does not have one — but *where it came
+      # from*: GitHub signs this through Sigstore, and
+      # `gh attestation verify <file> --repo <owner>/<repo>` checks it against a transparency
+      # log. A tampered bundle cannot claim to have come from here.
+      #
+      # It does not make macOS open the app. Nothing but notarisation does, and that needs a
+      # paid Apple account. The instruction for the first launch ships with the download.
+      - name: Where these came from
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            EpochServices/target/release/bundle/**/*.dmg
+            EpochServices/target/release/bundle/**/*.exe
+            EpochServices/target/release/bundle/**/*.msi
+            EpochServices/target/release/bundle/**/*.deb
+            EpochServices/target/release/bundle/**/*.AppImage
+            EpochServices/target/release/bundle/*.cdx.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: epochservices-${{ matrix.name }}
+          # Every bundle format this platform produced. Naming them individually would mean
+          # editing this file the day Tauri adds one.
+          path: |
+            EpochServices/target/release/bundle/**/*
+          if-no-files-found: error

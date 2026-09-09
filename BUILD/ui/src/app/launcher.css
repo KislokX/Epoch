@@ -1,0 +1,6927 @@
+/*
+  ## The floor under every piece of text on this deck (measured 2026-09-06)
+
+  The owner said the secondary grey was hard to read. Measured in the running window rather than
+  eyeballed: every text node composited against **what is actually behind it** — an ancestor walk,
+  because `backgroundColor` is `rgba(0,0,0,0)` on most elements and reading that as black would
+  have said every panel passes.
+
+  Against this ground, `rgb(8, 6, 16)`:
+
+  | alpha | contrast |
+  |---|---|
+  | 0.30 | 2.30 |
+  | 0.32 | 2.47 |
+  | 0.40 | 3.26 |
+  | 0.45 | 3.86 |
+  | **0.50** | **4.55** |
+
+  WCAG 2.1 asks 4.5:1 for body text, so 0.50 is the floor and it was found by bisection, not
+  chosen. Sixty-eight failing readings across five decks — `cc__hint` under almost every control,
+  every `OFFLINE`, *"not running — start it with `ollama serve`"*, the labels on the stats.
+
+  **The ladder is lifted, not flattened.** 0.30 / 0.40 / 0.45 were three deliberate tiers and
+  they still are, at 0.50 / 0.62 / 0.66. Hierarchy survives in the order; it was never supposed
+  to survive by making the bottom rung unreadable.
+
+  Only `color` was touched. The same values appear in borders and shadows, where contrast does
+  not apply and raising them would make the deck busier for nothing.
+
+  **One reading is a false positive and is left alone:** `.lx__wordmark` measures 1.00 because
+  EPOCH is painted with `color: transparent` and a clipped gradient. The measurement is right
+  about the property and wrong about the pixels, which is worth saying rather than "fixing".
+*/
+
+/*
+ * The Launcher's look — the bridge of a docked ship.
+ *
+ * A different Experience Surface deserves a different visual language, and this one answers a
+ * different question than the World does. The World asks "where am I?"; the bridge asks
+ * "where am I going, and who is coming with me?".
+ *
+ * ## Why it is not a dashboard
+ *
+ * An earlier version of this file optimised for legibility and density, and it produced
+ * something correct and lifeless: a settings screen with a picture of a map on it. Panels,
+ * gauges and berths are not decoration here — they are what makes preparing to leave feel
+ * like preparing to leave.
+ *
+ * ## The rule the fiction does not get to break
+ *
+ * Every gauge shows something the Engine actually measured. Where nothing exists yet, the
+ * panel stays — same frame, same gold — and says it is dormant. A bridge full of invented
+ * telemetry is the same lie as a Laboratory that looks busy with no provider behind it, and
+ * it would train the user to stop reading the instruments.
+ *
+ * Its own file because it is its own surface: nothing here should ever be reachable from
+ * inside a World, and nothing in `world.css` should style this.
+ */
+
+:root {
+  /* Hull and panelling */
+  --lx-void: #07060c;
+  --lx-deep: #04030a;
+  --lx-panel-a: #171320;
+  --lx-panel-b: #100d17;
+  --lx-sunk: rgba(6, 5, 11, 0.6);
+  --lx-inset: #05040a;
+  --lx-edge: #322a44;
+  --lx-edge-lit: #463a5c;
+
+  /* Instrument light */
+  --lx-gold: #e8b74a;
+  --lx-gold-lit: #ffd77a;
+  --lx-parchment: #f4e6c4;
+  /*
+    ## How wide anything is allowed to get (measured 2026-09-06)
+
+    On the owner's maximised 2560 window the content column is **1,896px** and the widest line
+    of prose measured **1,870px** — room for **337 characters**. The accepted ceiling for a line
+    somebody reads is about 90; comfortable is 45–75. Four times past it.
+
+    That is also the answer to *"why is there a sea of empty space"*: the space was not there
+    because content was missing. It was there because the column was far wider than anything
+    should be, so everything in it was stretched thin across it.
+
+    **Two columns was the obvious fix and it is the wrong one.** Halving 337 gives 168, still
+    nearly twice the ceiling — it hides the defect behind more content rather than fixing it —
+    and every deck was just reordered into a *reading* order, question first, which a second
+    column destroys by making the eye choose where to start.
+
+    So: one column, capped, and the bridge shows through the rest. A bridge has space; that is
+    what makes it a bridge and not a control panel (`EXPERIENCE_CONSTITUTION`, and the HUD's own
+    rule one surface over — over the World, never instead of it).
+
+    `--lx-read` is 90 characters at the measured 5.55px each — **500px, and it was 780 for one
+    commit.** The claim and the number disagreed: 780 gives 141 characters, which the next
+    measurement said out loud (`cc__hint`, 141) while the comment beside it still said ninety.
+    A number written from an intention rather than from the multiplication. `--lx-wide` is for
+    rows, cards and
+    tables, which are **scanned** rather than read and tolerate more. Two numbers in one place,
+    replacing two caps that were previously guessed at their own call sites.
+
+    ## And then it was written in `em`, because a pixel cap is not a character cap
+
+    500px is ninety characters **of the 14px body it was measured against**. Every consumer of
+    this token is smaller than that: `.cc__hint` is 11px and was measured at **103** characters
+    on CREATIONS, `.notice` at 96, and both of them had the cap applied the whole time. The rule
+    was in force, the rule was broken, and nothing said so — which is worse than an absent cap,
+    because a cap that is present is one nobody re-measures.
+
+    Ninety at 5.55px each is **35.7em at that size**, so the token is written that way and
+    resolves against whatever size the text is actually set in. The one number is unchanged; it
+    is stated in the unit the claim was always about.
+
+    `--lx-wide` stays in pixels on purpose: it caps a *row*, and a row's width has nothing to do
+    with the size of the type inside it.
+  */
+  --lx-read: 36em;
+  --lx-wide: 1100px;
+
+  --lx-ink: #efe8da;
+  /*
+    The two tiers under `--lx-ink`, and the floor they now clear.
+
+    They were `0.45` and `0.3` — **3.86:1 and 2.30:1** against this ground, both under WCAG's
+    4.5. `--lx-ink-faint` is what `.cc__hint` uses, which is the sentence under almost every
+    control on every deck, so it was the single biggest source of the sixty-eight failing
+    readings.
+
+    Found last, and that is the lesson: forty-four literal `color:` declarations were lifted
+    first and the decks still measured badly, because the ones that mattered most came from
+    **two variables** and a search for values does not find a name. Measure, change, measure
+    again — the second measurement is what said the first fix had missed the centre.
+
+    The ladder is kept: `ink` over `quiet` over `faint`, at 1.0 / 0.62 / 0.50. Hierarchy lives
+    in the order, never in making the bottom rung unreadable.
+  */
+  --lx-ink-quiet: rgba(239, 232, 218, 0.62);
+  --lx-ink-faint: rgba(239, 232, 218, 0.5);
+  --lx-violet: #c79bf5;
+  --lx-violet-deep: #7a45c8;
+  --lx-green: #5fd6a4;
+  --lx-blue: #6fb8ef;
+
+  --lx-pixel: "Press Start 2P", monospace;
+  --lx-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --lx-sans: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+/* Reduced motion is honoured globally: the bridge idles rather than pulses. */
+@media (prefers-reduced-motion: reduce) {
+  .lx *,
+  .dep * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes ep-twk {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+@keyframes ep-lamp {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  52% {
+    opacity: 0.28;
+  }
+}
+@keyframes ep-drift {
+  0% {
+    transform: translate3d(-160px, 0, 0);
+  }
+  100% {
+    transform: translate3d(1620px, -26px, 0);
+  }
+}
+@keyframes ep-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  55%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+@keyframes ep-scan {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(4px);
+  }
+}
+@keyframes ep-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes ep-halo {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@keyframes ep-streak {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 1400px;
+  }
+}
+@keyframes ep-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ep-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   The bridge
+   ========================================================================== */
+
+.lx {
+  position: relative;
+  height: 100%;
+  /*
+   * Its own scroll container. `body` is `overflow: hidden` because the World must never
+   * scroll — a world you can scroll off the bottom of is a document. The bridge is a console
+   * with more instruments than fit on a short window, so it scrolls, and only it does.
+   */
+  overflow-y: auto;
+  overflow-x: hidden;
+  /*
+    **No widget** (owner, 2026-09-07). It was `thin` in the pack's own colours, which is the
+    careful imitation this World has already deleted twice — a drawn scrollbar is still a
+    scrollbar. The wheel, the trackpad, the keys and `scrollIntoView` all still work; what goes
+    is the drawn control, and a panel clipped at the edge is what says there is more.
+  */
+  scrollbar-width: none;
+  padding: 13px;
+  background:
+    radial-gradient(1300px 520px at 50% -12%, #1c1530 0%, transparent 72%),
+    linear-gradient(180deg, #0b0912, var(--lx-void) 55%, #0a0812);
+  font-family: var(--lx-sans);
+  color: var(--lx-ink);
+  /*
+   * An immersion leak, fixed once for the whole surface: a bridge you can accidentally
+   * select the text of is a web page again.
+   */
+  user-select: none;
+}
+
+/* CRT grille and vignette. Never interactive. */
+.lx__grille,
+.lx__vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.lx__grille {
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.022) 0 1px,
+      transparent 1px 3px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.35) 0 2px,
+      transparent 2px 4px
+    );
+}
+
+.lx__vignette {
+  box-shadow: inset 0 0 190px rgba(0, 0, 0, 0.85);
+}
+
+/* A scrollbar that reads as part of the hull rather than as the operating system's. */
+.lx::-webkit-scrollbar {
+  width: 10px;
+}
+
+.lx::-webkit-scrollbar-track {
+  background: rgba(6, 5, 11, 0.6);
+}
+
+.lx::-webkit-scrollbar-thumb {
+  background: var(--lx-edge);
+  box-shadow: inset 0 0 0 1px var(--lx-inset);
+}
+
+.lx::-webkit-scrollbar-thumb:hover {
+  background: var(--lx-edge-lit);
+}
+
+/* ------------------------------------------------------------------ header */
+
+.lx__view {
+  position: relative;
+  height: 158px;
+  margin-bottom: 13px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #04050e, #090a18 70%, #0b0a14);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px #3b3049,
+    inset 0 0 80px rgba(0, 0, 0, 0.9),
+    0 12px 30px rgba(0, 0, 0, 0.6);
+}
+
+.lx__stars,
+.lx__stars--bright {
+  position: absolute;
+  inset: 0;
+}
+
+.lx__stars {
+  background-image:
+    radial-gradient(1px 1px at 12% 24%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 21% 68%, #cfe0ff 50%, transparent),
+    radial-gradient(1px 1px at 31% 18%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 39% 47%, #e7d7ff 50%, transparent),
+    radial-gradient(1px 1px at 46% 78%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 55% 12%, #cfe0ff 50%, transparent),
+    radial-gradient(1px 1px at 61% 58%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 68% 33%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 74% 72%, #e7d7ff 50%, transparent),
+    radial-gradient(1px 1px at 83% 26%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 89% 62%, #cfe0ff 50%, transparent),
+    radial-gradient(1px 1px at 94% 38%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 7% 52%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 17% 88%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 51% 92%, #cfe0ff 50%, transparent),
+    radial-gradient(1px 1px at 77% 90%, #fff 50%, transparent);
+}
+
+.lx__stars--bright {
+  animation: ep-twk 5.5s ease-in-out infinite;
+  background-image:
+    radial-gradient(1.5px 1.5px at 15% 40%, #fff 50%, transparent),
+    radial-gradient(1.5px 1.5px at 35% 70%, #fff 50%, transparent),
+    radial-gradient(1.5px 1.5px at 58% 28%, #ffe9b8 50%, transparent),
+    radial-gradient(1.5px 1.5px at 72% 55%, #fff 50%, transparent),
+    radial-gradient(1.5px 1.5px at 87% 16%, #d9c4ff 50%, transparent),
+    radial-gradient(1.5px 1.5px at 44% 20%, #fff 50%, transparent);
+}
+
+.lx__nebula {
+  position: absolute;
+  left: 8%;
+  top: -40%;
+  width: 640px;
+  height: 300px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(120, 80, 200, 0.22),
+    transparent 68%
+  );
+  filter: blur(2px);
+}
+
+.lx__planet {
+  position: absolute;
+  right: 52px;
+  top: -84px;
+  width: 290px;
+  height: 290px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 34% 30%,
+    #8d7ce4 0%,
+    #5b47a8 34%,
+    #2f2568 62%,
+    #140f30 82%,
+    #0a0820 100%
+  );
+  box-shadow:
+    inset -26px -14px 60px rgba(0, 0, 0, 0.85),
+    0 0 70px rgba(140, 110, 230, 0.35);
+}
+
+.lx__planet-halo {
+  position: absolute;
+  right: 36px;
+  top: -100px;
+  width: 322px;
+  height: 322px;
+  border-radius: 50%;
+  animation: ep-halo 7s ease-in-out infinite;
+  box-shadow: 0 0 60px 6px rgba(150, 110, 240, 0.16);
+}
+
+.lx__comet {
+  position: absolute;
+  left: 0;
+  top: 56px;
+  width: 120px;
+  height: 8px;
+  animation: ep-drift 38s linear infinite;
+}
+
+.lx__comet b {
+  position: absolute;
+  right: 0;
+  top: 2px;
+  width: 9px;
+  height: 4px;
+  background: #dfe9ff;
+  box-shadow: 0 0 8px 2px rgba(190, 220, 255, 0.7);
+}
+
+.lx__comet i {
+  position: absolute;
+  right: 9px;
+  top: 3px;
+  width: 96px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(150, 200, 255, 0.55));
+}
+
+.lx__strut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 13px;
+  background: linear-gradient(90deg, #0d0b14, #2b2438 40%, #171225);
+  box-shadow:
+    2px 0 0 rgba(0, 0, 0, 0.6),
+    inset 1px 0 0 rgba(255, 255, 255, 0.07);
+}
+
+.lx__strut--l {
+  left: 22%;
+}
+.lx__strut--r {
+  left: 78%;
+}
+
+.lx__rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 16px;
+  background: linear-gradient(180deg, #2c2438, #14101f);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.7);
+}
+
+.lx__rivets {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5px;
+  height: 6px;
+  display: flex;
+  gap: 34px;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.lx__rivets span {
+  width: 3px;
+  height: 3px;
+  background: #5b4d72;
+}
+
+.lx__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 26px;
+  background: linear-gradient(180deg, transparent, rgba(10, 8, 16, 0.95));
+}
+
+.lx__wordmark-wrap {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.lx__crest {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.lx__crest i {
+  width: 110px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 183, 74, 0.6));
+}
+
+.lx__crest i + i {
+  background: linear-gradient(270deg, transparent, rgba(232, 183, 74, 0.6));
+}
+
+.lx__gem {
+  width: 13px;
+  height: 13px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, #d7b6ff, var(--lx-violet-deep));
+  box-shadow:
+    0 0 0 2px #1a1030,
+    0 0 16px 3px rgba(160, 108, 232, 0.65);
+}
+
+.lx__wordmark {
+  margin: 0;
+  font: 400 52px var(--lx-pixel);
+  letter-spacing: 6px;
+  background: linear-gradient(
+    180deg,
+    #fff3cf 4%,
+    #f2ca67 40%,
+    #a97a22 78%,
+    #d8ae4c 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 0 rgba(60, 38, 4, 0.9))
+    drop-shadow(0 10px 22px rgba(232, 183, 74, 0.28));
+}
+
+.lx__tagline {
+  margin: 8px 0 0;
+  font: 400 11px var(--lx-pixel);
+  letter-spacing: 7px;
+  color: #b98ae8;
+  text-shadow:
+    0 0 14px rgba(160, 108, 232, 0.7),
+    0 2px 0 #100a20;
+}
+
+.lx__motto {
+  margin: 12px 0 0;
+  font: italic 400 13px/1 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.5);
+  letter-spacing: 0.3px;
+}
+
+/* The orchestrator's plate — whose bridge this is. */
+.lx__plate {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 320px;
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 13px;
+  padding: 11px;
+  background: linear-gradient(
+    180deg,
+    rgba(23, 19, 32, 0.96),
+    rgba(14, 11, 21, 0.97)
+  );
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px #6e5526,
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 26px rgba(0, 0, 0, 0.6);
+}
+
+.lx__portrait {
+  position: relative;
+  width: 88px;
+  height: 94px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #241d33, #12101c);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 0 18px rgba(160, 108, 232, 0.18);
+  animation: ep-bob 6s ease-in-out infinite;
+}
+
+.lx__portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Pixel art stays pixel art; a photograph is unaffected by this at 1:1 or larger. */
+  image-rendering: pixelated;
+  /* Immersion leak: artwork must not be draggable out of the ship as an image. */
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/*
+ * Nobody has chosen a face. A silhouette, not a generated avatar — inventing a likeness for
+ * somebody who has not introduced themselves is the same lie as a populated Launcher.
+ */
+.lx__portrait-none {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0.35;
+}
+
+.lx__portrait-none i {
+  position: absolute;
+  top: 26px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #6b5c8a;
+}
+
+.lx__portrait-none b {
+  position: absolute;
+  bottom: 12px;
+  width: 46px;
+  height: 26px;
+  border-radius: 23px 23px 0 0;
+  background: #6b5c8a;
+}
+
+.lx__plate-body {
+  min-width: 0;
+}
+
+.lx__plate-name {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: 400 15px var(--lx-pixel);
+  color: var(--lx-parchment);
+  text-shadow: 0 2px 0 #000;
+  letter-spacing: 0.5px;
+  overflow-wrap: anywhere;
+}
+
+.lx__plate-name:hover {
+  color: var(--lx-gold-lit);
+}
+
+.lx__plate-form {
+  display: flex;
+  gap: 6px;
+}
+
+.lx__plate-form input {
+  min-width: 0;
+  flex: 1;
+  font: 400 12px var(--lx-sans);
+  color: var(--lx-ink);
+  background: rgba(6, 5, 11, 0.7);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  padding: 5px 8px;
+}
+
+.lx__plate-form input:focus {
+  outline: 0;
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.75);
+}
+
+.lx__plate-drop {
+  margin-top: 8px;
+}
+
+.lx__plate .drop {
+  margin-top: 8px;
+}
+
+.lx__plate-role {
+  margin-top: 6px;
+  font: 400 11px var(--lx-mono);
+  color: #a08ec9;
+  letter-spacing: 1.4px;
+}
+
+.lx__plate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 11px;
+  font: 500 11px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.lx__plate-row span:last-child {
+  color: var(--lx-ink-quiet);
+}
+
+/* ==========================================================================
+   Panels — the shared frame everything on the bridge sits in
+   ========================================================================== */
+
+.pnl {
+  position: relative;
+  padding: 13px;
+  background: linear-gradient(180deg, var(--lx-panel-a), var(--lx-panel-b));
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 26px rgba(0, 0, 0, 0.55);
+}
+
+/* A card's heading, with the one action that belongs beside it. */
+.pnl__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/*
+  Put away what has been read.
+
+  Quiet on purpose: housekeeping next to a heading, not something to reach for. And it clears the
+  *view* — the Quests and the evidence are untouched, which is why it says CLEAR and not DELETE.
+*/
+.pnl__clear {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.4px;
+  color: var(--lx-ink-faint);
+  cursor: pointer;
+}
+
+.pnl__clear:hover {
+  color: var(--lx-gold, #e8b74a);
+}
+
+/* One page bar, shared by three panels. */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pager__page {
+  min-width: 20px;
+  padding: 2px 5px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--lx-ink-quiet);
+  font: 400 10px var(--lx-mono);
+  cursor: pointer;
+}
+
+.pager__page:disabled {
+  color: var(--lx-ink-faint);
+  cursor: default;
+}
+
+.pager__page--on {
+  background: rgba(232, 183, 74, 0.18);
+  color: var(--lx-gold, #e8b74a);
+}
+
+.pnl__title {
+  margin: 0;
+  font: 400 10px var(--lx-pixel);
+  color: var(--lx-gold);
+  text-shadow: 0 2px 0 #000;
+  letter-spacing: 0.5px;
+}
+
+.pnl__rule {
+  height: 1px;
+  margin: 11px 0 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(232, 183, 74, 0.4),
+    rgba(232, 183, 74, 0.05)
+  );
+}
+
+/*
+ * A panel with nothing behind it yet.
+ *
+ * It keeps the frame and loses the light. The point is that it reads as a real part of the
+ * ship that is powered down — not as a missing feature, and never as a working instrument.
+ */
+.pnl--dormant .pnl__title {
+  color: rgba(232, 183, 74, 0.66);
+}
+
+.pnl--dormant {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(50, 42, 68, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.dormant {
+  margin: 0;
+  font: 400 11.5px/1.65 var(--lx-sans);
+  color: var(--lx-ink-faint);
+  text-wrap: pretty;
+}
+
+.dormant__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 9px;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.6px;
+  color: rgba(239, 232, 218, 0.55);
+}
+
+.dormant__tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(239, 232, 218, 0.25);
+}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+
+.lx__deck {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 330px;
+  gap: 13px;
+  align-items: stretch;
+}
+
+/*
+ * Breakpoints chosen from what each column actually needs, not from device names.
+ *
+ * Below ~1180px the nav, the bay and the instrument stack no longer fit side by side, so the
+ * instruments move to the bottom strip rather than disappearing. Hiding them would be the
+ * easy fix and the wrong one: a gauge that vanishes when the window narrows teaches the user
+ * that the readings are decorative.
+ */
+@media (max-width: 1180px) {
+  .lx__deck {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .lx__aside {
+    grid-column: 1 / -1;
+    flex-direction: row;
+  }
+  .lx__aside > * {
+    flex: 1;
+  }
+}
+
+@media (max-width: 820px) {
+  .lx__deck {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lx__aside {
+    flex-direction: column;
+  }
+}
+
+.lx__strip {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  /*
+    `minmax(0, …)`, because a `fr` track will not shrink below its contents.
+
+    Four panels holding Windows paths and whole command lines asked for more room than the window
+    had, the row grew past the right edge, and `.lx` clips overflow — so the Crew Channel was not
+    laid out badly, it was *gone*. A panel that vanishes when the window narrows is the same lie
+    as a gauge that vanishes: the crew were aboard and the bridge stopped saying so.
+  */
+  grid-template-columns:
+    minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(0, 0.95fr)
+    minmax(0, 1fr);
+  gap: 13px;
+  margin-top: 13px;
+}
+
+/*
+  Four across needs roughly 1400. Below that they stack two-by-two rather than being squeezed —
+  measured from the window the Crew Channel disappeared in, not from a device name.
+*/
+@media (max-width: 1400px) {
+  .lx__strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .lx__strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/*
+  The reading column. It fills a narrow window and stops growing on a wide one — see
+  `--lx-wide` above for the measurement that set the number.
+*/
+/*
+  The content column, and **it is not capped** (owner, 2026-09-06).
+
+  It was, at `--lx-wide`, and that was the wrong place for the limit: *"aprovechemos las
+  resoluciones, no limitemos."* He is right, and the reason is in the measurement rather than in
+  the preference — the defect at 2560 was a **line of prose 337 characters long**, and a line is
+  made of text, not of panel. Capping the panel fixed the symptom by making everything smaller,
+  including the lists and forms that had nothing wrong with them.
+
+  So the cap lives on the text: `--lx-read` on `.cc__hint`, `.notice` and the other prose, and
+  per-component widths where a row or a card has its own reason. A form, a list of models and a
+  shelf of files are scanned, not read, and they take the screen they are given.
+*/
+.lx__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+/*
+  ## Two columns on a wide screen — built, measured, and taken out again (2026-09-06)
+
+  The owner asked for it against my recommendation, it was built, and **using it is what settled
+  the argument.** Kept here as a record rather than deleted, because the next person to want two
+  columns should find out what happened instead of rediscovering it.
+
+  CSS multi-column was the right tool for the reasoning — it fills the first column before
+  starting the second, so the reading order survives — and the wrong tool for these decks,
+  because **multicol balances by content height and a deck is not a stack of similar blocks.**
+  Every deck has one big thing and several small ones, so:
+
+  - CREW ROSTER put the heading and its sentence alone in the left column and all three
+    characters in the right, with two thirds of the deck empty.
+  - MACHINES and MCP did the same: title left, everything else right.
+  - MODELS split an expanded model card away from the paragraph explaining it.
+
+  None of that is a threshold to tune. Balancing is what multicol *is*, and a layout that
+  balances is the wrong shape for a screen whose blocks are deliberately unequal.
+
+  What would work is a grid with each deck's blocks placed by hand — real work in eight decks,
+  and it fights the reading order the reorganisation had just established. Worth doing only if
+  the empty space turns out to cost more than the ordering does, which is a judgement to make
+  after living with one column rather than before.
+
+  So the deck is one column again, capped at `--lx-wide`, prose at `--lx-read`.
+*/
+
+.lx__aside {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+/* -------------------------------------------------------------------- nav */
+
+.lxnav {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px 1fr 10px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  background: linear-gradient(180deg, #1c1729, #120f1c);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    transform 0.14s ease,
+    background 0.14s ease;
+}
+
+.lxnav:hover {
+  background: linear-gradient(180deg, #251e36, #181324);
+  transform: translateX(3px);
+}
+
+.lxnav--on::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 2px var(--lx-gold),
+    inset 0 0 26px rgba(232, 183, 74, 0.15),
+    0 0 18px rgba(232, 183, 74, 0.22);
+}
+
+.lxnav__glyph {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #241d33, #15111f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.lxnav__label {
+  display: block;
+  font: 400 12px var(--lx-pixel);
+  color: var(--lx-parchment);
+  letter-spacing: 0.3px;
+}
+
+.lxnav__hint {
+  display: block;
+  margin-top: 5px;
+  font: 400 11px var(--lx-sans);
+  color: rgba(239, 232, 218, 0.64);
+}
+
+.lxnav__chev {
+  font: 500 12px var(--lx-mono);
+  /*
+    Was 0.55, measured at 3.76:1 against the item's own ground — under the 4.5 this Launcher
+    holds itself to, on the one glyph that appears eleven times. Raised until it passes rather
+    than by eye, which is how the quiet ink was corrected in the same file.
+  */
+  color: rgba(232, 183, 74, 0.72);
+}
+
+.lxnav__list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/*
+ * Menu glyphs, drawn in CSS rather than shipped as icons.
+ *
+ * Deliberate: a World Pack may one day restyle the whole surface, and an icon set baked into
+ * the build would be the one thing it could not replace. These are also the only artwork in
+ * Epoch nobody had to author.
+ */
+.g-orb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #7fd8ff, #2b74b8 58%, #123055);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.g-link {
+  position: relative;
+  width: 18px;
+  height: 6px;
+}
+
+.g-link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 18px;
+  height: 2px;
+  background: rgba(232, 183, 74, 0.5);
+}
+
+.g-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  background: var(--lx-gold);
+  box-shadow: 12px 0 0 var(--lx-gold);
+}
+
+.g-crew {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.g-crew::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lx-violet);
+}
+
+.g-crew::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 9px;
+  width: 14px;
+  height: 6px;
+  background: #8a5cd0;
+}
+
+/*
+  CREATIONS: a frame with something in it.
+
+  Drawn rather than shipped, like every other glyph here — a World Pack should be able to
+  restyle the whole surface without a baked-in icon set being the one thing it cannot replace.
+*/
+.g-canvas {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.g-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 1px 0 1px 0;
+  border: 2px solid var(--lx-gold);
+}
+
+.g-canvas::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 5px;
+  background: var(--lx-violet);
+  box-shadow: -1px -4px 0 rgba(232, 183, 74, 0.55);
+}
+
+.g-tools {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.g-tools::before,
+.g-tools::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 18px;
+  height: 3px;
+}
+
+.g-tools::before {
+  background: #cbbfa6;
+  transform: rotate(-45deg);
+}
+
+.g-tools::after {
+  background: #8d8474;
+  transform: rotate(45deg);
+}
+
+.g-gear {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 3px solid #cbbfa6;
+  box-shadow:
+    0 -7px 0 -4px #cbbfa6,
+    0 7px 0 -4px #cbbfa6,
+    -7px 0 0 -4px #cbbfa6,
+    7px 0 0 -4px #cbbfa6;
+}
+
+.g-exit {
+  position: relative;
+  width: 16px;
+  height: 12px;
+}
+
+.g-exit::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 11px;
+  height: 3px;
+  background: var(--lx-violet);
+}
+
+.g-exit::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 1px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--lx-violet);
+}
+
+/* --------------------------------------------------------- provider links */
+
+.link {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 9px;
+  background: rgba(6, 5, 11, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+}
+
+.link__glyph {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #221b31, #14101f);
+  box-shadow: 0 0 0 2px var(--lx-inset);
+}
+
+.link__glyph i {
+  width: 13px;
+  height: 13px;
+  /* Unlit: a conduit with nothing running through it must not glow. */
+  filter: saturate(0.25) brightness(0.6);
+}
+
+/* Lit only when the Engine actually got an answer. */
+.link__glyph i.link__lit {
+  filter: none;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.link__id {
+  min-width: 0;
+}
+
+.link__id b {
+  display: block;
+  font: 600 12px var(--lx-sans);
+  color: rgba(244, 230, 196, 0.75);
+}
+
+/*
+  Which computer, beside the program that runs on it.
+
+  Quieter than the program's name and on the same line, because it qualifies the name rather
+  than competing with it — six rows reading `Ollama · llama.cpp · LM Studio` twice over needed
+  one word to tell the pairs apart, not a second heading.
+*/
+.link__where {
+  font: 400 10px var(--lx-mono);
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.link__id i {
+  display: block;
+  margin-top: 3px;
+  font: 400 10px var(--lx-mono);
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.52);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.link__status {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.3px;
+  color: rgba(239, 232, 218, 0.52);
+}
+
+.link__status--on {
+  color: var(--lx-green);
+}
+
+.lxnav__sep {
+  height: 1px;
+  margin: 14px 0;
+  background: linear-gradient(
+    90deg,
+    rgba(232, 183, 74, 0.06),
+    rgba(232, 183, 74, 0.3),
+    rgba(232, 183, 74, 0.06)
+  );
+}
+
+.lxnav--exit {
+  grid-template-columns: 32px 1fr;
+  background: linear-gradient(180deg, #241a35, #170f26);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(160, 108, 232, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.lxnav--exit:hover {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(160, 108, 232, 0.75),
+    0 0 22px rgba(160, 108, 232, 0.3);
+}
+
+.lxnav--exit .lxnav__label {
+  color: #e0cdfb;
+}
+
+.lxnav--exit .lxnav__hint {
+  font-style: italic;
+  color: rgba(224, 205, 251, 0.66);
+}
+
+.lxdock {
+  margin-top: 14px;
+  padding: 9px 10px;
+  background: rgba(6, 5, 11, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  font: 400 10px/1.6 var(--lx-mono);
+  color: var(--lx-ink-faint);
+}
+
+.lxdock div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.lxdock b {
+  font-weight: 400;
+  color: var(--lx-green);
+}
+
+/*
+ * A reserved instrument: the frame stays, the light does not.
+ *
+ * Same rule the dormant panels follow. An empty track with no fill reads as a gauge waiting to
+ * be connected; a violet bar at 0% reads as a measurement of nothing, which is the one thing it
+ * must never look like.
+ */
+.lx__plate-row--cold span:last-child {
+  color: var(--lx-ink-faint);
+}
+
+.gauge__bar--cold {
+  opacity: 0.45;
+}
+
+.lx__plate-tag {
+  margin: 8px 0 0;
+}
+
+/* A dock with problems must not read in the same green as one without. */
+.lxdock b.lxdock--warn {
+  color: var(--lx-gold);
+}
+
+/* ==========================================================================
+   Worlds — the docking bay
+   ========================================================================== */
+
+.bay {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 15px 16px 16px;
+}
+
+.bay__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Two buttons where a heading has two. Same reason as .bay__acts one rule down. */
+.rdy__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Two acts where a deck has two. Wraps rather than squeezing: a narrow window should
+   drop the second button to its own line, not shrink both until neither reads. */
+.bay__acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.bay__heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bay__heading .lx__gem {
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 10px 2px rgba(160, 108, 232, 0.6);
+}
+
+.bay__heading h2 {
+  margin: 0;
+  font: 400 15px var(--lx-pixel);
+  color: var(--lx-gold);
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 0 #000;
+}
+
+.bay__sub {
+  margin: 8px 0 0;
+  /* A deck's own sentence is read, and it was the longest thing on CONNECTIONS at 102. */
+  max-width: var(--lx-read);
+  font: 400 12px var(--lx-sans);
+  color: var(--lx-ink-quiet);
+}
+
+.bay__rule {
+  height: 1px;
+  margin: 14px 0 15px;
+  background: linear-gradient(
+    90deg,
+    rgba(232, 183, 74, 0.35),
+    rgba(232, 183, 74, 0.04)
+  );
+}
+
+.bay__hero {
+  display: grid;
+  grid-template-columns: 392px minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+/*
+ * The hero splits only when the brief has room to be read beside the viewport. Squeezed into
+ * 160px it would wrap every second word, so below this it stacks and the viewport goes full
+ * width — which the derived map is happy to do.
+ */
+@media (max-width: 1400px) {
+  .bay__hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vp {
+    height: 210px;
+  }
+}
+
+/* ------------------------------------------------------------- the viewport */
+
+.vp {
+  position: relative;
+  height: 238px;
+  background: #07060f;
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-edge-lit),
+    inset 0 0 40px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+/*
+ * What fills the viewport is the World's own geography, derived from its terrain and Place
+ * positions — never a supplied key-art image. A picture could promise anything; a map drawn
+ * from the World cannot show something the World does not contain.
+ */
+.vp .wp {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Key art the author supplied. Fills the viewport; the chart is one click away. */
+.vp__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  image-rendering: pixelated;
+  /* Immersion leak: a World's artwork must not be draggable out as an image file. */
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.berth__tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  image-rendering: pixelated;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/*
+ * Import controls, tucked into the viewport's own corner rather than given a row of their own.
+ * Interaction happens *around* the artwork, never inside it — the same rule the World follows,
+ * for the same reason: nothing may assume an image contains editable parts.
+ */
+.vp__tools {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  z-index: 2;
+}
+
+.vp__tools .notice {
+  position: absolute;
+  right: 0;
+  top: 34px;
+  width: 260px;
+  margin: 0;
+  background: rgba(6, 5, 11, 0.95);
+}
+
+/* ------------------------------------------------------------ image import */
+
+.drop__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* The real input is invisible; its <label> is the button. */
+.drop__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.drop__input:focus-visible + .btn,
+label.btn:focus-within {
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.9);
+}
+
+label.btn {
+  cursor: pointer;
+}
+
+.btn--over {
+  color: var(--lx-parchment);
+  box-shadow:
+    inset 0 0 0 1px var(--lx-gold),
+    0 0 16px rgba(232, 183, 74, 0.35);
+}
+
+.vp__scan,
+.vp__vig {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.vp__scan {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.28) 0 1px,
+    transparent 1px 4px
+  );
+  animation: ep-scan 1.6s steps(4) infinite;
+  opacity: 0.55;
+}
+
+.vp__vig {
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.75);
+}
+
+.vp__berth {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 6px 9px;
+  background: rgba(6, 5, 11, 0.85);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6);
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.6px;
+  color: rgba(239, 232, 218, 0.7);
+  pointer-events: none;
+}
+
+.vp__link {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.2px;
+}
+
+.vp__link--ok {
+  color: rgba(95, 214, 164, 0.9);
+}
+.vp__link--warn {
+  color: rgba(232, 183, 74, 0.9);
+}
+
+.lamp {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: ep-lamp 2.4s ease-in-out infinite;
+}
+
+/* ----------------------------------------------------------------- the brief */
+
+.brief {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.brief__name {
+  margin: 0;
+  font: 400 24px var(--lx-pixel);
+  letter-spacing: 1px;
+  color: var(--lx-gold);
+  text-shadow:
+    0 3px 0 #000,
+    0 0 22px rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.brief__kind {
+  margin-top: 10px;
+  font: 500 11px var(--lx-mono);
+  letter-spacing: 2px;
+  color: var(--lx-ink-quiet);
+}
+
+.brief__desc {
+  margin: 13px 0 0;
+  max-width: 520px;
+  font: 400 13.5px/1.65 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.7);
+  text-wrap: pretty;
+}
+
+.brief__desc--none {
+  font-style: italic;
+  color: var(--lx-ink-faint);
+}
+
+.brief__stats {
+  display: flex;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.stat {
+  flex: 1;
+  padding: 10px 11px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.stat--wide {
+  flex: 1.5;
+}
+
+.stat__label {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.4px;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.stat__value {
+  margin-top: 6px;
+  font: 400 13px var(--lx-pixel);
+  color: var(--lx-parchment);
+}
+
+.stat__value--quiet {
+  font: 500 12px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+.brief__note {
+  margin-top: 11px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  font: 400 12px var(--lx-sans);
+  color: rgba(239, 232, 218, 0.6);
+}
+
+.brief__note .lamp {
+  color: var(--lx-gold);
+}
+
+/*
+  **Under the brief, not at the foot of the column** (owner, 2026-09-06).
+
+  It was `margin-top: auto`, which pins the departure row to the bottom of the brief — fine
+  while the column beside it was a 238-pixel viewport, and wrong the moment that column grew.
+  With the map at 384 the button sat about 230 pixels below the last thing said about the World,
+  with nothing in between, and the owner drew a box around the hole.
+
+  What BOARD SHIP belongs to is the sentence above it: *this is the World, and this is what it
+  covers — board it.* Aligning it to the bottom of a neighbouring column tied it to something
+  it has nothing to do with, and any change to that neighbour moved it.
+*/
+.brief__go {
+  padding-top: 17px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.brief__ready {
+  font: 400 11px/1.6 var(--lx-mono);
+  color: rgba(239, 232, 218, 0.55);
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.board {
+  position: relative;
+  overflow: hidden;
+  padding: 17px 30px;
+  border: 0;
+  cursor: pointer;
+  color: #2b1d05;
+  font: 400 15px var(--lx-pixel);
+  letter-spacing: 1px;
+  background: linear-gradient(180deg, #f7d478, #d3a238 62%, #b8871f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 5px 0 0 #6f5015,
+    0 12px 28px rgba(232, 183, 74, 0.28);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+.board:hover {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 5px 0 0 #6f5015,
+    0 14px 36px rgba(232, 183, 74, 0.45);
+}
+
+.board:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 1px 0 0 #6f5015,
+    0 6px 14px rgba(232, 183, 74, 0.3);
+}
+
+.board:disabled {
+  cursor: default;
+  filter: saturate(0.4) brightness(0.75);
+}
+
+.board__sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
+  animation: ep-sheen 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border: 0;
+  cursor: pointer;
+  color: var(--lx-parchment);
+  font: 400 10px var(--lx-pixel);
+  background: linear-gradient(180deg, #221b31, #15111f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.3);
+  transition: box-shadow 0.15s ease;
+}
+
+.btn:hover {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.8),
+    0 0 18px rgba(232, 183, 74, 0.25);
+}
+
+.btn:disabled {
+  cursor: default;
+  color: var(--lx-ink-faint);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.12);
+}
+
+.btn__plus {
+  color: var(--lx-gold);
+}
+
+.btn--ghost {
+  width: 100%;
+  justify-content: center;
+  padding: 10px;
+  color: rgba(239, 232, 218, 0.75);
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.6px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.btn--ghost:hover {
+  color: var(--lx-parchment);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.6);
+}
+
+.btn--mini {
+  padding: 6px 10px;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.2px;
+  color: rgba(239, 232, 218, 0.8);
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.btn--mini:hover {
+  color: var(--lx-parchment);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.6);
+}
+
+/* --------------------------------------------------------------- the berths */
+
+/*
+  The rule above the berths — and it no longer pushes them to the floor.
+
+  `margin: auto 0 13px` in a flex column pins the docking bay to the bottom of the deck, so
+  everything between the selected World and the berths was **223px of nothing** on this window
+  and far more on a maximised one. The owner drew a red line down it.
+
+  Pinning it there was deliberate — a dock reads as the bottom of a screen — and it was the wrong
+  trade: it bought a metaphor with a hole. The berths sit under the World they belong to now, and
+  the deck ends where its content does.
+*/
+.bay__spacer {
+  height: 1px;
+  margin: 22px 0 13px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.02)
+  );
+}
+
+.bay__strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 2px;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.bay__strip span:last-child {
+  letter-spacing: 1.4px;
+  color: var(--lx-ink-faint);
+}
+
+.berths {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.berth {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  background: linear-gradient(180deg, #1c1729, #110e1b);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-edge);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.berth:hover {
+  transform: translateY(-3px);
+}
+
+.berth--on {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-gold),
+    0 0 22px rgba(232, 183, 74, 0.22);
+}
+
+.berth__tile {
+  position: relative;
+  height: 56px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #3d5f96 0%, #7f9dc4 44%, #2a2036 100%);
+}
+
+/* The berth thumbnail is the same derived map, small. Nothing here is stock art. */
+.berth__tile .wp {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.berth__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.25) 0 2px,
+      transparent 2px 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.25) 0 2px,
+      transparent 2px 4px
+    );
+  opacity: 0.6;
+}
+
+.berth__shade {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 -14px 22px rgba(6, 5, 11, 0.85);
+}
+
+.berth__no {
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.4px;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.berth__body {
+  padding: 9px 10px 11px;
+}
+
+.berth__name {
+  font: 400 10px var(--lx-pixel);
+  color: var(--lx-gold);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.berth__facts {
+  margin-top: 7px;
+  display: flex;
+  justify-content: space-between;
+  font: 500 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.64);
+}
+
+.berth__flag {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lx-gold);
+  box-shadow: 0 0 8px rgba(232, 183, 74, 0.9);
+}
+
+/* ==========================================================================
+   Decks — a section that is honestly not built yet
+   ========================================================================== */
+
+.deck {
+  position: relative;
+  flex: 1;
+  min-height: 460px;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  overflow: hidden;
+}
+
+.deck__grille {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.deck__body {
+  position: relative;
+  text-align: center;
+  max-width: 520px;
+}
+
+.deck__seal {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #241d33, #14101f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-edge-lit),
+    inset 0 0 26px rgba(160, 108, 232, 0.2);
+}
+
+.deck__seal i {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(232, 183, 74, 0.7);
+  border-radius: 50%;
+  box-shadow:
+    0 -22px 0 -18px rgba(232, 183, 74, 0.7),
+    0 22px 0 -18px rgba(232, 183, 74, 0.7),
+    -22px 0 0 -18px rgba(232, 183, 74, 0.7),
+    22px 0 0 -18px rgba(232, 183, 74, 0.7);
+  animation: ep-spin 22s linear infinite;
+}
+
+.deck__name {
+  margin: 22px 0 0;
+  font: 400 18px var(--lx-pixel);
+  color: var(--lx-gold);
+  text-shadow: 0 3px 0 #000;
+}
+
+.deck__state {
+  margin-top: 14px;
+  font: 500 11px var(--lx-mono);
+  letter-spacing: 2px;
+  color: rgba(160, 108, 232, 0.9);
+}
+
+.deck__copy {
+  margin: 16px auto 0;
+  max-width: 420px;
+  font: 400 13px/1.7 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.55);
+  text-wrap: pretty;
+}
+
+.deck__back {
+  margin-top: 24px;
+  padding: 13px 22px;
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Aside instruments
+   ========================================================================== */
+
+.pnl__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gauge + .gauge {
+  margin-top: 9px;
+}
+
+.gauge__row {
+  display: flex;
+  justify-content: space-between;
+  font: 500 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.66);
+}
+
+.gauge__row b {
+  font-weight: 500;
+  color: rgba(239, 232, 218, 0.7);
+}
+
+.gauge__bar {
+  position: relative;
+  height: 10px;
+  margin-top: 5px;
+  background: #0a0810;
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 1px 2px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+.gauge__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--c) 0 5px,
+    rgba(0, 0, 0, 0.55) 5px 7px
+  );
+  box-shadow: 0 0 10px var(--c);
+  transition: width 0.4s ease;
+}
+
+.gauge--green {
+  --c: var(--lx-green);
+}
+.gauge--blue {
+  --c: var(--lx-blue);
+}
+.gauge--violet {
+  --c: #b07ef0;
+}
+
+.readout {
+  margin-top: 14px;
+  padding: 10px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  font: 400 10px/1.65 var(--lx-mono);
+  color: rgba(239, 232, 218, 0.64);
+}
+
+.readout div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.readout b {
+  font-weight: 400;
+  color: rgba(239, 232, 218, 0.7);
+}
+
+.readout b.ok {
+  color: rgba(95, 214, 164, 0.85);
+}
+.readout b.warn {
+  color: var(--lx-gold);
+}
+
+.hull {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 500 11px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.5);
+  margin-bottom: 13px;
+}
+
+.hull b {
+  font-weight: 500;
+}
+.hull b.ok {
+  color: var(--lx-green);
+}
+.hull b.warn {
+  color: var(--lx-gold);
+}
+
+/* The ship's log — real problems, or an honest all-clear. */
+/*
+  A list that holds its shape.
+
+  Paging fixed how *much* is shown and not how *tall* it is: a page of six one-line Quests and a
+  page of four wrapped ones were different heights, so the card resized as you turned pages — and
+  in a narrow column every title wrapped to four lines and the log ran to four screens.
+
+  So the list reserves the room for a full page whether or not it has one, and each entry is one
+  line. `--rows` is set by the panel, because six and seven are its numbers, not this file's.
+*/
+.log {
+  /*
+    The row height is stated, not inferred.
+
+    `1.9em` was a guess at what a row measures, and it was wrong in the direction that shows: a
+    full page came out taller than its own reservation, so a page of six and a page of two were
+    still different heights. A row is now a fixed number of pixels and the reservation is that
+    number times the page — the card cannot change size as you turn pages, because neither term
+    depends on what is in it.
+  */
+  --row: 33px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(var(--rows, 6) * var(--row));
+  align-content: start;
+}
+
+.log li {
+  box-sizing: border-box;
+  height: var(--row);
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  align-items: center;
+  gap: 11px;
+  padding: 0 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+/*
+  When something happened, beside what happened.
+
+  Quieter than the sentence and on the same line, because it qualifies it rather than competing
+  with it — and a second line per entry would double the height of a card that holds sixteen.
+*/
+.log__when {
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.50);
+}
+
+.log__dot {
+  margin-top: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--lx-gold);
+  box-shadow: 0 0 8px rgba(232, 183, 74, 0.7);
+}
+
+/*
+  One line, cut with an ellipsis.
+
+  A Quest is titled from what the user typed, which can be a paragraph. Wrapping it made one entry
+  four rows tall and the card unpredictable; the whole title is still there on hover, and the
+  Chronicle has all of it.
+*/
+.log__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 12px/1.5 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.72);
+}
+
+/* Bridge console — quick actions. Disabled ones say so instead of pretending. */
+.console {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+}
+
+.console button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 6px;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  background: rgba(6, 5, 11, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.console button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.55);
+  transform: translateY(-2px);
+}
+
+.console button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.console__glyph {
+  width: 26px;
+  height: 26px;
+  box-shadow:
+    0 0 12px var(--g),
+    0 0 0 2px var(--lx-inset);
+  background: var(--c);
+}
+
+.console__label {
+  font: 500 9px/1.3 var(--lx-mono);
+  letter-spacing: 0.6px;
+  text-align: center;
+  color: rgba(239, 232, 218, 0.6);
+  white-space: pre-line;
+}
+
+.hintbar {
+  margin-top: 12px;
+  padding: 9px 10px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  font: 400 10px/1.7 var(--lx-mono);
+  color: rgba(239, 232, 218, 0.55);
+}
+
+.hintbar b {
+  font-weight: 400;
+  color: rgba(232, 183, 74, 0.8);
+}
+
+/* Tip of the day */
+.tip {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.tip__lamp {
+  position: relative;
+  width: 52px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #241d33, #14101f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 0 14px rgba(232, 183, 74, 0.16);
+  animation: ep-bob 7s ease-in-out infinite;
+}
+
+.tip__lamp .stalk {
+  position: absolute;
+  top: 7px;
+  width: 2px;
+  height: 7px;
+  background: rgba(232, 183, 74, 0.7);
+}
+
+.tip__lamp .bulb {
+  position: absolute;
+  top: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--lx-gold);
+  box-shadow: 0 0 9px rgba(232, 183, 74, 0.9);
+}
+
+.tip__lamp .face {
+  position: relative;
+  top: 5px;
+  width: 24px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: linear-gradient(180deg, #cbbfa6, #8d8474);
+  box-shadow: 0 0 0 2px var(--lx-inset);
+}
+
+.tip__lamp .face i {
+  width: 4px;
+  height: 5px;
+  background: #1c2a3a;
+}
+
+.tip__lamp .base {
+  position: absolute;
+  bottom: 8px;
+  width: 30px;
+  height: 9px;
+  background: linear-gradient(180deg, #8d8474, #5d564a);
+  box-shadow: 0 0 0 2px var(--lx-inset);
+}
+
+.tip__text {
+  margin: 0;
+  font: 400 12.5px/1.65 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.65);
+  text-wrap: pretty;
+}
+
+.tip__dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.tip__dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(239, 232, 218, 0.18);
+}
+
+.tip__dots i.on {
+  background: var(--lx-gold);
+}
+
+/* Crew channel */
+.pnl--crew {
+  background: linear-gradient(180deg, #1b1526, var(--lx-panel-b));
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(160, 108, 232, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 26px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.pnl--crew .pnl__title {
+  color: var(--lx-violet);
+}
+
+.pnl--crew .pnl__rule {
+  background: linear-gradient(
+    90deg,
+    rgba(160, 108, 232, 0.5),
+    rgba(160, 108, 232, 0.06)
+  );
+}
+
+.pnl--crew::after {
+  content: "";
+  position: absolute;
+  right: -36px;
+  bottom: -36px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(160, 108, 232, 0.22),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.chan {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.chan__face {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #241d33, #14101f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 0 16px rgba(160, 108, 232, 0.3);
+  animation: ep-bob 6.5s ease-in-out infinite;
+  overflow: hidden;
+}
+
+.chan__face svg {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.chan__gem {
+  width: 14px;
+  height: 14px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, #e2ccff, var(--lx-violet-deep));
+  box-shadow: 0 0 12px 2px rgba(160, 108, 232, 0.7);
+}
+
+.chan__text {
+  margin: 0;
+  font: 400 12.5px/1.6 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.75);
+  text-wrap: pretty;
+}
+
+.chan__who {
+  display: block;
+  margin-bottom: 4px;
+  font: 400 10px var(--lx-pixel);
+  color: var(--lx-violet);
+}
+
+.btn--violet {
+  width: 100%;
+  justify-content: center;
+  margin-top: 13px;
+  padding: 9px;
+  color: rgba(199, 155, 245, 0.9);
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.6px;
+  background: rgba(6, 5, 11, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(160, 108, 232, 0.35);
+}
+
+.btn--violet:hover {
+  color: #e2ccff;
+  box-shadow: inset 0 0 0 1px rgba(160, 108, 232, 0.8);
+}
+
+/* ==========================================================================
+   Notices
+   ========================================================================== */
+
+.notice {
+  margin: 0 0 9px;
+  padding: 9px 11px;
+  font: 400 11.5px/1.6 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.7);
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow-wrap: anywhere;
+}
+
+.notice--warn {
+  color: #f6d9a0;
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.4);
+}
+
+.notice code {
+  font: 500 11px var(--lx-mono);
+  color: var(--lx-gold);
+}
+
+/* ==========================================================================
+   Departure — the airlock
+   ========================================================================== */
+
+.dep {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  background: var(--lx-deep);
+  user-select: none;
+}
+
+.dep__stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 18% 30%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 34% 62%, #cfe0ff 50%, transparent),
+    radial-gradient(1px 1px at 52% 22%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 68% 70%, #e7d7ff 50%, transparent),
+    radial-gradient(1px 1px at 82% 40%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 12% 78%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 90% 14%, #cfe0ff 50%, transparent);
+}
+
+.dep__planet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  border-radius: 50%;
+  /*
+    Its own colour, derived from the World's identity — set as `--hue` by the component. The
+    stops stay fixed so every planet is recognisably the same *kind* of world seen from orbit,
+    lit from the same angle; only the hue moves. A World Pack that later wants to declare its
+    own colour overrides one variable and nothing else changes.
+
+    The fallback keeps the original violet, so nothing that already looked right moves.
+  */
+  --hue: 258;
+  background: radial-gradient(
+    circle at 36% 32%,
+    hsl(var(--hue) 62% 69%) 0%,
+    hsl(var(--hue) 45% 44%) 36%,
+    hsl(var(--hue) 50% 25%) 64%,
+    hsl(var(--hue) 48% 11%) 84%,
+    hsl(var(--hue) 45% 8%) 100%
+  );
+  box-shadow:
+    inset -40px -20px 80px rgba(0, 0, 0, 0.85),
+    0 0 120px hsl(var(--hue) 60% 66% / 0.35);
+  transition: transform 3s cubic-bezier(0.3, 0, 0.4, 1);
+}
+
+.dep__warp {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.8s ease;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.5) 0 2px,
+    transparent 2px 90px
+  );
+  background-size: 100% 300px;
+  animation: ep-streak 1.1s linear infinite;
+  mask-image: radial-gradient(circle at 50% 50%, transparent 12%, #000 60%);
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent 12%,
+    #000 60%
+  );
+}
+
+.dep__door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.2%;
+  transition: transform 1.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.dep__door::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.35) 0 3px,
+      transparent 3px 26px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0 2px,
+      transparent 2px 40px
+    );
+}
+
+.dep__door--l {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    #0d0b14 0%,
+    #241d33 40%,
+    #191325 82%,
+    #3a2f18 100%
+  );
+  box-shadow: inset -8px 0 24px rgba(0, 0, 0, 0.8);
+}
+
+.dep__door--r {
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    #0d0b14 0%,
+    #241d33 40%,
+    #191325 82%,
+    #3a2f18 100%
+  );
+  box-shadow: inset 8px 0 24px rgba(0, 0, 0, 0.8);
+}
+
+.dep__seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: linear-gradient(180deg, #f0c65e, #8a6a24);
+  box-shadow: 0 0 26px rgba(232, 183, 74, 0.7);
+}
+
+.dep__door--l .dep__seam {
+  right: 0;
+}
+.dep__door--r .dep__seam {
+  left: 0;
+}
+
+.dep__panel {
+  position: absolute;
+  top: 50%;
+  margin-top: -70px;
+  width: 88px;
+  height: 140px;
+  background: linear-gradient(180deg, rgba(232, 183, 74, 0.1), transparent);
+  box-shadow: inset 0 0 0 2px rgba(232, 183, 74, 0.25);
+}
+
+.dep__door--l .dep__panel {
+  right: 38px;
+}
+.dep__door--r .dep__panel {
+  left: 38px;
+}
+
+.dep__hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 34px 40px;
+  background: linear-gradient(180deg, transparent, rgba(4, 3, 10, 0.9));
+}
+
+.dep__hud-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.dep__stage {
+  font: 400 11px var(--lx-pixel);
+  letter-spacing: 2px;
+  color: var(--lx-gold);
+  text-shadow: 0 2px 0 #000;
+}
+
+.dep__bar {
+  position: relative;
+  height: 8px;
+  margin-top: 16px;
+  background: rgba(6, 5, 11, 0.8);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 1px 2px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+.dep__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  transition: width 1s ease;
+  background-image: repeating-linear-gradient(
+    90deg,
+    #f0c65e 0 5px,
+    rgba(0, 0, 0, 0.5) 5px 7px
+  );
+  box-shadow: 0 0 14px rgba(232, 183, 74, 0.6);
+}
+
+.dep__dest {
+  margin-top: 13px;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.6px;
+  color: var(--lx-ink-quiet);
+}
+
+.dep__arrival {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(4, 3, 10, 0.4),
+    rgba(4, 3, 10, 0.9)
+  );
+}
+
+.dep__arrival-body {
+  text-align: center;
+  padding: 20px;
+  animation: ep-rise 0.7s ease both;
+}
+
+.dep__welcome {
+  font: 400 12px var(--lx-pixel);
+  letter-spacing: 4px;
+  color: rgba(199, 155, 245, 0.9);
+  text-shadow: 0 0 18px rgba(160, 108, 232, 0.6);
+}
+
+.dep__name {
+  margin: 22px 0 0;
+  font: 400 44px var(--lx-pixel);
+  letter-spacing: 2px;
+  color: var(--lx-parchment);
+  text-shadow:
+    0 4px 0 #000,
+    0 0 40px rgba(232, 183, 74, 0.4);
+  overflow-wrap: anywhere;
+}
+
+.dep__crew {
+  margin-top: 20px;
+  font: 400 13px/1.7 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.6);
+}
+
+.dep__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 30px;
+  flex-wrap: wrap;
+}
+
+.dep__enter {
+  padding: 16px 28px;
+  font-size: 13px;
+}
+
+.btn--quiet {
+  padding: 16px 24px;
+  color: rgba(239, 232, 218, 0.8);
+  font: 400 11px var(--lx-pixel);
+  background: rgba(10, 8, 18, 0.8);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+.btn--quiet:hover {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.6);
+}
+
+/* ==========================================================================
+   The crew roster
+   ========================================================================== */
+
+.cast {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+/*
+  Portrait · who they are · what you can do about it.
+
+  **Placed explicitly, because the DOM order is not the reading order.** The action is written
+  before the body so that moving it never depended on relocating a twelve-hundred-line editor,
+  and a grid that placed itself would then draw it in the middle. Three named columns say what
+  is meant and cannot drift when something is inserted between them.
+*/
+.cc {
+  display: grid;
+  grid-template-columns: 88px 1fr auto;
+  gap: 13px;
+  align-items: start;
+  padding: 11px 13px;
+  background: linear-gradient(180deg, #1c1729, #110e1b);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-edge);
+}
+
+.cc--open {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.55),
+    0 0 22px rgba(232, 183, 74, 0.14);
+}
+
+.cc__face {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  width: 88px;
+  height: 94px;
+  display: block;
+  background: linear-gradient(180deg, #241d33, #12101c);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    inset 0 0 18px rgba(160, 108, 232, 0.18);
+  image-rendering: pixelated;
+}
+
+.cc__face--none {
+  display: grid;
+  place-items: center;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.4px;
+  /*
+    The quiet ink rather than the faint one: measured at 4.49:1, which is under the 4.5 this
+    Launcher holds itself to. It is the stand-in for somebody who has no face yet — the one
+    piece of text on the row that has to be readable for the row to make sense.
+  */
+  color: var(--lx-ink-quiet);
+}
+
+.cc__acts {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.cc__body {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.cc__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cc__name {
+  margin: 0;
+  font: 400 13px var(--lx-pixel);
+  color: var(--lx-parchment);
+  text-shadow: 0 2px 0 #000;
+}
+
+.cc__role {
+  margin: 8px 0 0;
+  font: 400 12.5px/1.55 var(--lx-sans);
+  color: rgba(239, 232, 218, 0.7);
+}
+
+.cc__meta {
+  margin: 8px 0 0;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.1px;
+  color: var(--lx-ink-faint);
+  text-transform: uppercase;
+}
+
+/*
+  Every sentence on every deck. **The single widest thing measured** — 1,870px, 337 characters —
+  because it is the line under almost every control and nothing was stopping it.
+
+  A `max-width` rather than a container change: this class appears inside panels, inside rows and
+  inside the aside, and in every one of those the cap is either the fix or a no-op.
+*/
+.notice {
+  max-width: var(--lx-read);
+}
+
+.cc__hint {
+  max-width: var(--lx-read);
+  font: 400 11px var(--lx-sans);
+  color: var(--lx-ink-faint);
+}
+
+/*
+ * A hint somebody has to **read to use the control**, rather than one describing it afterwards.
+ *
+ * `--lx-ink-faint` is right for background prose and wrong for an instruction: the sentence
+ * naming which two encoders Flux needs was the only thing that would have got the owner through
+ * the panel, and it was the least legible text on the screen. They picked one encoder, found
+ * GENERATE grey, and hit a server refusal from the first thing they tried instead.
+ *
+ * Parchment rather than gold: gold is reserved for a hint that changes what a control *means*,
+ * and cheapening it would leave nothing to say that with.
+ */
+.cc__hint--read {
+  color: var(--lx-parchment, #efe8da);
+}
+
+/* A hint that changes what the control above it means, rather than describing it. Gold because
+   the reader has to see it before they act, not after they wonder why nothing happened. */
+.cc__hint--warn {
+  color: var(--lx-gold, #d8b25a);
+}
+
+/* What a model says about itself, under the field where it is chosen. */
+.cedit__declares {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+/* Absent by default, present when declared — and both are drawn, because "this model does not
+   say it can see" is information and a missing row is not. Dim rather than hidden for the same
+   reason a withheld capability keeps its box. */
+.declares {
+  padding: 1px 6px;
+  border: 1px solid var(--lx-ink-faint, #6b6a63);
+  font: 400 9.5px var(--lx-mono);
+  font-style: normal;
+  letter-spacing: 0.04em;
+  color: var(--lx-ink-faint, #6b6a63);
+  opacity: 0.55;
+}
+
+.declares--on {
+  border-color: var(--lx-gold, #d8b25a);
+  color: var(--lx-gold, #d8b25a);
+  opacity: 1;
+}
+
+.cc__worlds {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1px;
+  color: var(--lx-ink-faint);
+  background: rgba(6, 5, 11, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  transition:
+    color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.chip--on {
+  color: var(--lx-parchment);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.7);
+}
+
+.chip input {
+  accent-color: var(--lx-gold);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ settings */
+
+.setting {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.setting:hover {
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.5);
+}
+
+.setting input {
+  margin-top: 2px;
+  accent-color: var(--lx-gold);
+  width: 16px;
+  height: 16px;
+}
+
+.setting--range {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 34%);
+  align-items: center;
+}
+
+.setting--range input[type="range"] {
+  width: 100%;
+  height: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/*
+  A dropdown in a settings row.
+
+  **`.pnl select` already drew the arrow and it was not enough.** With no font, no border and no
+  ground of its own, the control still arrived as the platform's grey box sitting inside a
+  pixel-art panel — the same immersion leak as the LoRA strength slider, which was also *nearly*
+  styled. A careful imitation of a widget is still a widget; an unstyled one is not even an
+  imitation.
+
+  It borrows the range control's column so the two device pickers line up under the two volumes,
+  which is what makes the block read as one thing rather than four.
+*/
+/*
+  A setting whose control is a box rather than a tick.
+
+  **`.setting input` is sized for a checkbox** — `16px` square, the platform's own colours — and a
+  number field inherited it: sixteen pixels wide, white on white, with a spinner. The owner
+  photographed it and could not read the value in it.
+
+  It borrows the range row's columns so every control in this panel lines up on the same edge,
+  which is what makes the block read as one thing rather than a list of unrelated widgets.
+*/
+.setting--wide {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 34%);
+  align-items: center;
+}
+
+.setting--wide select,
+.setting--wide input[type="number"],
+.setting--range select {
+  width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 6px 26px 6px 9px;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-parchment);
+  background-color: var(--lx-sunk);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+/*
+  The spinner is the platform's, and it is a platform widget in a pixel-art window — the same
+  immersion leak as the drawn scrollbar and the blue range thumb this file has already removed.
+  The number is typed or selected; the arrows were never the way anybody set it.
+*/
+.setting--wide input[type="number"] {
+  width: 100%;
+  height: auto;
+  margin: 0;
+  text-align: right;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.setting--wide input[type="number"]::-webkit-outer-spin-button,
+.setting--wide input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.setting--wide select:hover,
+.setting--wide select:focus,
+.setting--wide input[type="number"]:hover,
+.setting--wide input[type="number"]:focus,
+.setting--range select:hover,
+.setting--range select:focus {
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.55);
+  outline: none;
+}
+
+.setting b {
+  display: block;
+  font: 400 11px var(--lx-pixel);
+  color: var(--lx-parchment);
+  letter-spacing: 0.3px;
+}
+
+/*
+  What a control does, said under it.
+
+  **Capped, because these are the longest prose in the Launcher and nothing had ever measured
+  them.** At 2,560 with the deck's full width behind it, the explanation under *Run several crew
+  members at once* ran to **336 characters** on one line — and five of its neighbours were over
+  ninety too. The deck's own headings and hints have been capped for weeks; the sentences that
+  actually explain the switches never were, because nobody reads a settings deck at 2,560 until
+  somebody rearranges it and looks.
+
+  In `em` for the same reason the export panel's is: `--lx-read` is 90 characters *of 14px text*,
+  and this is set at 12. **A pixel cap is a character cap only at the size it was computed for.**
+*/
+.setting i {
+  display: block;
+  margin-top: 8px;
+  max-width: var(--lx-read);
+  font-style: normal;
+  font: 400 12px/1.6 var(--lx-sans);
+  color: var(--lx-ink-quiet);
+}
+
+/* ------------------------------------------------------------ crew editor */
+
+.cedit {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 11px;
+}
+
+/*
+  Making somebody, before they exist.
+
+  Set apart from the roster below it rather than styled as another card: this is one act, and a
+  form that looked like a list entry would read as editing a character who is already there.
+*/
+.hire {
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.28);
+}
+
+/* Offered words, as an offer: a link in a sentence, not a button competing with MAKE THEM. */
+.hire__offer {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--lx-gold, #e8b74a);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cedit__field {
+  display: grid;
+  /*
+    Rows at their natural height, at the top.
+
+    A grid's auto rows *stretch* into spare height by default, and a field sitting beside a
+    taller one gets exactly that: the label row grew, which pushed the control to the bottom of
+    its cell, and the control grew with it. Two fields side by side ended up with their boxes on
+    different lines.
+
+    `start` is the fix rather than a height on the control — the control is the wrong place to
+    say where the row begins.
+  */
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cedit__field--wide {
+  grid-column: 1 / -1;
+}
+
+/*
+  The pitch a character is spoken at through an RVC voice.
+
+  **Both ends written down.** An unlabelled range control is one somebody has to guess at, and
+  this codebase has already read one backwards -- the LoRA strength shipped as the platform's
+  blue slider in a pixel-art window and had to be fixed twice: once for what it looked like, and
+  once for the fact that nothing said which way was more.
+
+  The number is on the right rather than in a tooltip: it is the value the character's file will
+  hold, and `+12` is what somebody types into a forum post when they ask why a voice sounds off.
+*/
+.cedit__pitch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font: 400 9px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.cedit__pitch input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--lx-gold, #d8b25a);
+  cursor: pointer;
+}
+
+.cedit__pitch b {
+  min-width: 28px;
+  text-align: right;
+  font: 700 10px var(--lx-mono);
+  color: var(--lx-gold, #d8b25a);
+}
+
+/*
+  Signed out, with the fix beside it.
+
+  Two buttons rather than one: signing in happens outside Epoch, so there is nothing to await —
+  "check again" is the honest second half of a measurement the user can repeat.
+*/
+.cedit__signin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.cedit__signin b {
+  font: 500 11px var(--lx-mono);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--lx-gold, #e8b74a);
+}
+
+.cedit__signin i {
+  flex: 1 1 100%;
+  font-style: normal;
+  font: 400 11.5px/1.5 var(--lx-sans);
+  color: var(--lx-ink-quiet);
+}
+
+.cedit__field > span {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+/*
+ * Every field on this surface, not one panel's.
+ *
+ * This lived under `.cedit` alone, so the character editor was styled and any panel written
+ * afterwards fell through to the browser's own white boxes — which is exactly what the Workshop
+ * did the day it was added, and what the MCP deck had been doing quietly before it. A form
+ * control that has to be *opted into* the theme is a leak that recurs with every new screen, so
+ * the theme is the default and the exceptions name themselves.
+ *
+ * Range and checkbox inputs are excluded: both are styled where they live, and giving them a
+ * padded box would break the slider and the tick-boxes rather than theme them.
+ */
+.pnl input:not([type="range"]):not([type="checkbox"]),
+.pnl select,
+.pnl textarea {
+  font: 400 12.5px var(--lx-sans);
+  color: var(--lx-ink);
+  background: rgba(6, 5, 11, 0.7);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  padding: 7px 9px;
+  min-width: 0;
+}
+
+/*
+  **A dropdown was ignoring every one of the rules above.**
+
+  Measured in the window rather than guessed at: `getComputedStyle` on a `<select>` in the Models
+  deck reported `background: rgba(6, 5, 11, 0.7)`, `color: rgb(239, 232, 218)` — exactly what is
+  written above — and `appearance: auto`. WebView2 then painted the native Windows control over
+  the top, so a light-grey box with black text sat inside a pixel-art panel while the stylesheet
+  insisted it was dark.
+
+  A rule that is applied and ignored is worse than a missing one: it reads as done. `appearance:
+  none` is the one property that makes the element take its own styling, and it costs the arrow,
+  so the arrow is drawn.
+*/
+.pnl select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 24px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--lx-gold) 50%),
+    linear-gradient(135deg, var(--lx-gold) 50%, transparent 50%);
+  background-position:
+    calc(100% - 13px) calc(50% + 1px),
+    calc(100% - 9px) calc(50% + 1px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/*
+  The open list is the operating system's and cannot be styled. What can be done is stop it being
+  white: the options carry their own colours, so the popup arrives in the World's palette.
+*/
+.pnl select option {
+  background: #15111f;
+  color: var(--lx-parchment);
+}
+
+/*
+  A label above a control, in the World's voice.
+  **No rule existed**, so `FLASH ATTENTION` and `SPECULATIVE DECODING` rendered at the page's
+  default 16px sans — body text sitting where a caption belongs.
+*/
+.rt__pick {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.55);
+}
+
+.rt__pick > select {
+  font: 400 11px var(--lx-mono);
+  padding: 5px 24px 5px 8px;
+  min-width: 150px;
+}
+
+.pnl input:not([type="range"]):not([type="checkbox"]):focus,
+.pnl select:focus,
+.pnl textarea:focus {
+  outline: 0;
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.75);
+}
+
+/* A search field draws its own clear button in a colour nothing here chose. */
+.pnl input[type="search"]::-webkit-search-cancel-button {
+  filter: invert(1) opacity(0.45);
+}
+
+.cedit textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.routine {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.routine li {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.routine__unit {
+  font: 500 10px var(--lx-mono);
+  color: var(--lx-ink-faint);
+}
+
+.cedit__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cedit__file {
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-ink-faint);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------- advanced parameters */
+
+/*
+ * Collapsed by default: most people should never open it. The power is there for whoever
+ * running a local model wants it, and hidden from everybody else (ADR-0026).
+ */
+.cedit__advanced {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 10px;
+  display: block;
+}
+
+.cedit__advanced > summary {
+  cursor: pointer;
+  list-style: none;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.55);
+  user-select: none;
+}
+
+.cedit__advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cedit__advanced > summary::before {
+  content: "▸ ";
+  color: var(--lx-gold, #d8b25a);
+}
+
+.cedit__advanced[open] > summary::before {
+  content: "▾ ";
+}
+
+.cedit__advanced > summary:hover {
+  color: rgba(239, 232, 218, 0.9);
+}
+
+.cedit__grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 11px;
+}
+
+.cedit__advanced .cedit__field {
+  display: grid;
+  gap: 4px;
+}
+.cedit__advanced .cedit__field--wide {
+  margin-top: 9px;
+}
+
+/* Authored settings this form cannot edit yet. Visible, and visibly not a control. */
+.cedit__readonly {
+  margin: 4px 0 0;
+  padding: 7px 9px;
+  list-style: none;
+  font: 400 11.5px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.62);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cedit__readonly li + li {
+  margin-top: 3px;
+}
+
+/* ------------------------------------------------------------------ sliders */
+
+/*
+ * A slider shows the range it actually has, so a limit is never something you discover by
+ * being refused. Only bounded parameters get one — see `Bounded` for why `context_tokens`
+ * does not.
+ */
+.slider {
+  display: grid;
+  gap: 3px;
+}
+
+.slider__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.slider__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  color: var(--lx-gold, #d8b25a);
+}
+
+/* Unset is a state, not a value. Nothing here may look like a number somebody chose. */
+.slider--unset .slider__value {
+  color: rgba(239, 232, 218, 0.54);
+}
+.slider--unset input[type="range"] {
+  opacity: 0.3;
+}
+
+.slider__clear {
+  border: 0;
+  padding: 0 2px;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: rgba(239, 232, 218, 0.66);
+}
+
+.slider__clear:hover {
+  color: var(--lx-gold, #d8b25a);
+}
+
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--lx-gold, #d8b25a);
+  cursor: pointer;
+}
+
+.slider__rail {
+  display: flex;
+  justify-content: space-between;
+  font: 400 9px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.50);
+}
+
+/* --------------------------------------------------------------- capabilities */
+
+.caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/*
+ * What one source's box grants. Quiet by default and one line when closed, because the answer
+ * matters at the moment somebody is deciding and never before.
+ */
+.caps__inside {
+  margin-top: 6px;
+  font: 400 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.caps__inside > summary {
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.caps__inside > ul {
+  margin: 5px 0 0;
+  padding: 6px 9px;
+  max-height: 140px;
+  overflow-y: auto;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(239, 232, 218, 0.55);
+}
+
+/* ----------------------------------------------------------------- workshop */
+
+/*
+  Four doors, two by two.
+
+  **`auto-fit` put all four in a row** on a wide deck, which made each one a narrow column with
+  a headline that wrapped and a sentence that did not fit — four thin things where there are
+  four important ones. `minmax(240px, 1fr)` promises a floor and `auto-fit` spends every pixel
+  above it on more columns rather than on the columns it has.
+
+  Two is the count, and it is capped rather than fitted: at two columns each door is wide enough
+  to read at a glance, and the block reads as a choice between four things instead of a toolbar.
+  It still collapses to one column when the deck is narrow, which is what the `minmax` floor was
+  ever for.
+*/
+.wk__doors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  /* Was 760 by eye; it is the shared number now, and the doors keep their two columns. */
+  max-width: var(--lx-wide);
+}
+
+.wk__door {
+  display: grid;
+  gap: 6px;
+  padding: 16px 14px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  cursor: pointer;
+}
+
+.wk__door:hover {
+  border-color: var(--ep-gold, #e0b050);
+}
+
+.wk__door > b {
+  font: 600 13px var(--lx-mono);
+  letter-spacing: 1.5px;
+}
+.wk__door > span {
+  font-size: 11px;
+  color: rgba(239, 232, 218, 0.55);
+}
+.wk__door > i {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ep-gold, #e0b050);
+  font-style: normal;
+}
+
+/*
+ * A door that exists and is not built. It keeps its frame and loses its light, and its note
+ * names the subsystem that will open it — the same rule the Launcher's cold instruments follow.
+ */
+.wk__door--cold {
+  cursor: default;
+  opacity: 0.5;
+}
+.wk__door--cold:hover {
+  border-color: rgba(255, 255, 255, 0.09);
+}
+.wk__door--cold > i {
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.wk__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wk__search {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.wk__search > input {
+  flex: 1;
+}
+
+.wk__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.wk__note {
+  margin-top: 5px;
+}
+
+.wk__pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 1.5px;
+  color: rgba(239, 232, 218, 0.66);
+}
+
+.wk__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.wk__card {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+  /*
+    **A grid track will not shrink below its content unless told to.** A long unbroken title —
+    and a catalogue is full of them — pushed the card past its column and over its neighbour.
+    Two lines fix every child at once, which is why they are here rather than on each of them.
+  */
+  min-width: 0;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.wk__card--cold {
+  opacity: 0.62;
+}
+
+.wk__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.wk__head > h4 {
+  margin: 0;
+  font: 600 12px var(--lx-mono);
+  letter-spacing: 0.5px;
+}
+.wk__ver {
+  font: 400 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.wk__by {
+  margin: 0;
+  font: 400 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.66);
+}
+.wk__gone {
+  color: var(--ep-warn, #d08a30);
+}
+.wk__have {
+  color: var(--ep-cyan, #58b8c8);
+}
+
+.wk__desc {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+/*
+ * The whole of what would run. Wraps rather than truncating: a command the user cannot read
+ * completely is the same as a command they were never shown.
+ */
+.wk__cmd {
+  display: block;
+  padding: 7px 9px;
+  font: 400 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.72);
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 2px solid var(--ep-gold, #e0b050);
+  overflow-wrap: anywhere;
+}
+
+.wk__blocked {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(239, 232, 218, 0.5);
+}
+.wk__failed {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ep-warn, #d08a30);
+}
+.wk__added {
+  margin: 6px 0;
+  font-size: 11px;
+  color: var(--ep-cyan, #58b8c8);
+}
+
+.wk__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wk__src {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  color: rgba(239, 232, 218, 0.66);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wk__src:hover {
+  color: var(--ep-gold, #e0b050);
+}
+
+.wk__inputs {
+  display: grid;
+  gap: 8px;
+}
+
+.wk__input {
+  display: grid;
+  gap: 3px;
+}
+.wk__input > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1px;
+  color: rgba(239, 232, 218, 0.55);
+}
+.wk__input > em {
+  font-size: 10px;
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.wk__req,
+.wk__secret {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+}
+
+.wk__req {
+  color: var(--ep-warn, #d08a30);
+}
+.wk__secret {
+  color: var(--ep-cyan, #58b8c8);
+}
+
+/* ------------------------------------------------------------------ artwork */
+
+/*
+ * Two slots, side by side, because they are two different pictures answering two different
+ * questions — and seeing them together is what makes that obvious.
+ */
+.art__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.art {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.art__label {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.art__preview {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px;
+  min-height: 92px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.art__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- animations */
+
+/*
+ * Behind a door, because most characters have none and a wall of empty grids would bury the
+ * two pictures that every character does have.
+ */
+.anim__door > summary {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.55);
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.anim__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.anim {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.anim__label {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.anim__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  min-height: 92px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/*
+ * One cell of the sheet, and nothing else. Pixel art is scaled with hard edges — a smoothed
+ * sprite is a different drawing from the one somebody made.
+ */
+.sheet {
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+.sheet--none {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  font: 500 8px var(--lx-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.50);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.anim__cut {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.anim__number,
+.anim__directions {
+  display: grid;
+  gap: 3px;
+}
+
+.anim__number > span,
+.anim__directions > span {
+  font: 500 8px var(--lx-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.55);
+}
+
+.anim__number input,
+.anim__directions input {
+  width: 100%;
+  min-width: 0;
+}
+
+/*
+ * A World's removal sits under the brief rather than beside the buttons: its consequence list
+ * is longer than its file list, and it needs the width to be read rather than skimmed.
+ */
+.bay__removal {
+  padding: 14px 18px;
+  border-top: 1px solid rgba(232, 183, 74, 0.18);
+}
+
+/* -------------------------------------------------------------- readiness */
+
+.rdy {
+  display: grid;
+  gap: 7px;
+  padding: 10px 0 14px;
+}
+
+.rdy__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.rdy__head .cc__hint {
+  flex: 1;
+}
+
+.rdy__list {
+  display: grid;
+  gap: 3px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rdy__row {
+  display: grid;
+  grid-template-columns: 8px minmax(120px, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 9px;
+  padding: 5px 0;
+}
+
+/*
+ * Four states, and the difference is light rather than colour — same grammar the removal
+ * dialogue uses. `unset` is not a failure: it is nothing to detect.
+ */
+.rdy__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(232, 183, 74, 0.2);
+}
+
+.rdy__row--ready .rdy__dot {
+  background: var(--lx-gold);
+}
+
+.rdy__row--needsYou .rdy__dot {
+  background: rgba(232, 183, 74, 0.55);
+}
+
+.rdy__name {
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-parchment);
+}
+
+.rdy__note {
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+/*
+ * Which medium the library list is showing. A row of the same mini buttons the rest of the deck
+ * uses, so the filter reads as a control of this list rather than as a second kind of thing.
+ */
+/*
+ * Which runtime a row is timed on. Only drawn when there is more than one, because a control
+ * with one option is a control that never moves.
+ */
+.mdls__on {
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-parchment);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(232, 183, 74, 0.35);
+  padding: 2px 4px;
+  max-width: 120px;
+}
+
+/*
+ * The picture a catalogue leads with.
+ *
+ * A fixed height and `cover`, because twenty results are twenty different aspect ratios and a
+ * grid that reflows around each one is a grid that moves while somebody reads it. The frame is
+ * drawn even before the image lands, so a card does not grow when it does.
+ */
+.wk__shot {
+  display: block;
+  width: 100%;
+  height: 132px;
+  object-fit: cover;
+  border: 1px solid rgba(232, 183, 74, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  margin-bottom: 8px;
+  /* Somebody else's artwork, and not a thing to drag out of the window (immersion leaks). */
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.rdy__filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 2px;
+}
+
+/*
+ * A field laid on its side: the label beside the control rather than above it.
+ *
+ * `.cedit__field` is a two-row grid, which is right in a column of fields and wrong for one
+ * control sitting in a line with a sentence next to it.
+ */
+.cedit__field--inline {
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+}
+
+.cedit__field--inline > select {
+  min-width: 132px;
+}
+
+/*
+ * One line per file rather than one sentence per shelf.
+ *
+ * `min-width: 0` because the parent is a grid track: without it a long filename refuses to wrap
+ * and pushes the whole row past the panel's edge, which is the layout defect this codebase has
+ * already paid for once in the World's rails.
+ */
+.rdy__files {
+  display: grid;
+  gap: 3px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.rdy__files > li {
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- bridges */
+
+.brg {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0 14px;
+}
+
+.brg__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.brg__row,
+.brg__pair,
+.brg__ask {
+  display: grid;
+  gap: 6px;
+  padding: 9px 11px;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid rgba(232, 183, 74, 0.32);
+}
+
+.brg__row b,
+.brg__pair b {
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-parchment);
+}
+
+.brg__row i,
+.brg__ask p {
+  display: block;
+  font: 400 11px var(--lx-mono);
+  font-style: normal;
+  color: var(--lx-ink-quiet);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.brg__grants {
+  display: grid;
+  gap: 3px;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+.brg__grants label {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+
+.brg__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+/* Read off one screen and typed into another, so it is the biggest thing here. */
+.brg__code {
+  font: 400 22px var(--lx-mono);
+  letter-spacing: 6px;
+  color: var(--lx-gold-lit);
+  margin: 4px 0;
+}
+
+.brg__going {
+  display: grid;
+  gap: 6px;
+}
+
+/* ----------------------------------------------------------- models workshop */
+
+.mws {
+  display: grid;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.mws__machine {
+  display: grid;
+  gap: 4px;
+  padding: 9px 11px;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid rgba(232, 183, 74, 0.55);
+}
+
+.mws__ask {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mws__ask input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The answer, in the same weight as a measured reading anywhere else here. */
+.mws__verdict {
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-ink);
+  padding: 8px 11px;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid rgba(232, 183, 74, 0.32);
+}
+
+.mws__verdict b {
+  color: var(--lx-parchment);
+  font-weight: 400;
+}
+
+/*
+  What fits on this machine, as a grid.
+  ------------------------------------
+  Twenty of these read as a shape rather than as a list, and the shape is the point: rank runs
+  left to right, five across, so the best of them are one glance instead of one scroll.
+
+  `minmax(0, 1fr)` rather than `1fr`, because a grid track's default minimum is `auto` and a long
+  unbroken repository name would push the track wider than its share and take the row with it.
+  The names wrap instead.
+*/
+.fits {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.fits__box {
+  display: grid;
+  /* The button sits on the last row of every card, so a row of cards has one line of buttons
+     rather than a ragged one — the names above them are different lengths and always will be. */
+  grid-template-rows: auto auto auto auto auto auto 1fr;
+  align-content: start;
+  gap: 2px;
+  padding: 7px 8px 8px;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid rgba(232, 183, 74, 0.32);
+}
+
+/* Already on this machine: lit, because it is the one that costs nothing to try. */
+.fits__box--here {
+  border-left-color: rgba(232, 183, 74, 0.75);
+  background: rgba(232, 183, 74, 0.05);
+}
+
+.fits__rank {
+  font: 400 15px var(--lx-mono);
+  color: var(--lx-gold-lit);
+  line-height: 1;
+}
+
+.fits__name {
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-parchment);
+  margin: 0;
+  min-width: 0;
+  /* A model name is one token with no spaces in it; without this it decides the column width. */
+  overflow-wrap: anywhere;
+}
+
+.fits__where,
+.fits__size,
+.fits__how {
+  font: 400 9px var(--lx-mono);
+  color: var(--lx-ink-faint);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+  The reading. Measured and estimated never blur (`CLAUDE.md`): a measurement is lit and carries
+  no tilde, an estimate is dim and carries one, and the line under it says which it is in words.
+  The colour is a second cue, never the only one.
+*/
+.fits__rate {
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-ink);
+  margin: 2px 0 0;
+}
+
+.fits__rate--measured {
+  color: var(--lx-gold-lit);
+}
+
+.fits__box .btn {
+  align-self: end;
+  margin-top: 5px;
+}
+
+/* Narrow windows: fewer columns rather than five unreadable ones. */
+@media (max-width: 1100px) {
+  .fits {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .fits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/*
+  Models — the inventory.
+  -----------------------
+  Rows rather than a grid: an inventory is read down a column, and what is compared between two
+  models here is size and speed, which line up when the rows do. The Workshop's grid exists to
+  rank; this exists to list.
+
+  The chrome is the deck's own — `pnl bay`, a gem, a rule — because a deck that looks like a form
+  in a world that looks like a ship is an immersion leak that works correctly.
+*/
+/*
+  One model, and its buttons stay next to what they act on.
+
+  `1fr auto` puts the data left and the actions hard against the right edge, which is fine until
+  the deck is wide. Measured on a 1440-wide window the row is 744px and the gap after the name is
+  **14px**; maximised on the owner's screen the deck is around 1,480 and the same buttons sit
+  most of a thousand pixels from the numbers they explain — his words, *"las acciones quedan muy
+  separadas visualmente del dato que explican."*
+
+  A cap rather than a second column layout: proximity is the whole point (place a control near
+  what it affects), and 1,020 is the measured content width plus room for a long name. Past that
+  the row stops growing and the deck keeps the space, which is what a deck is for.
+*/
+.mdls__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 14px;
+  padding: 9px 11px;
+  /* Was 1020 by eye. A row is scanned rather than read, so it takes the wide number. */
+  max-width: var(--lx-wide);
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid rgba(232, 183, 74, 0.32);
+}
+
+/*
+  A paused benchmark.
+
+  **Above the deck rather than on a row**, because it is a fact about the machine and every row
+  below it is affected. Its own frame, in the pack's palette, and no scrollbar or platform widget
+  — the same rules as everything else in the World.
+*/
+/*
+  A paused benchmark is the most important thing on this deck when it exists, and it was a note
+  with a coloured edge — the shape a web page uses for a warning banner. It is a **window** now,
+  in the World's own bevel, because that is what Epoch's surfaces are made of.
+*/
+.mdls__paused {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  background: linear-gradient(180deg, rgba(34, 27, 49, 0.9), rgba(10, 8, 16, 0.9));
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.45);
+}
+
+.mdls__paused-head {
+  margin: 0 0 2px;
+  padding-bottom: 6px;
+  font: 400 10px var(--lx-pixel);
+  color: var(--lx-gold-lit);
+  letter-spacing: 0.06em;
+  /* The rule under a heading that every Frame in this World has. */
+  border-bottom: 1px solid rgba(232, 183, 74, 0.22);
+}
+
+.mdls__paused-num {
+  margin: 0;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink);
+}
+
+/*
+  The simplified model card.
+
+  **The same palette and the same bevels — this is a change of hierarchy, not a redesign.** What
+  moved is which information is at the top: the measured answer, rather than the controls that
+  produce it.
+*/
+.mdls__state {
+  float: right;
+  font: 400 9px var(--lx-mono);
+  color: var(--lx-green);
+  letter-spacing: 0.08em;
+}
+
+.mdls__headline {
+  margin: 6px 0 0;
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-gold-lit);
+}
+
+.mdls__profile {
+  margin: 3px 0 0;
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-parchment);
+}
+
+.mdls__better {
+  margin-left: 8px;
+  color: var(--lx-green);
+}
+
+/* An offer, not a warning about a fault — nothing is wrong with an unmeasured model. */
+.mdls__offer {
+  margin: 4px 0 0;
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-gold);
+}
+
+.mdls__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+/*
+  Every action on this deck: BENCHMARK & OPTIMIZE, CONFIGURE, QUICK TEST, RETRY, CALIBRATE,
+  CANCEL.
+
+  **These had no rule at all** — only the `--main` variant existed, which set a `border-color` on
+  a button that had no border. So nine controls were rendering as the platform's own buttons
+  inside a pixel-art window: the same immersion leak as the drawn scrollbar and the `<audio>`
+  element, and the same fix. A careful imitation of a widget is still a widget; the answer is the
+  World's own bevel.
+
+  Built from `.btn`'s vocabulary rather than a second one — the pixel face, the inset ring, the
+  gold ring outside it — at the size a card row needs.
+*/
+.mdls__do {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 0;
+  cursor: pointer;
+  color: rgba(239, 232, 218, 0.86);
+  font: 400 9px var(--lx-pixel);
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #221b31, #15111f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.26);
+  transition: box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.mdls__do:hover:not(:disabled) {
+  color: var(--lx-parchment);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.75),
+    0 0 14px rgba(232, 183, 74, 0.22);
+}
+
+/*
+  Disabled keeps its frame and loses its light — the Launcher's rule for an instrument with
+  nothing behind it, applied to a control that cannot be pressed yet.
+*/
+.mdls__do:disabled {
+  cursor: default;
+  color: var(--lx-ink-faint);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.1);
+}
+
+/* The one the eye should land on. Gold means *this is the thing to press*. */
+.mdls__do--main {
+  color: var(--lx-gold-lit);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.6);
+}
+
+.mdls__do--main:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.95),
+    0 0 18px rgba(232, 183, 74, 0.3);
+}
+
+/* Leaving without doing anything is not an action with equal weight. */
+.mdls__do--quiet {
+  color: rgba(239, 232, 218, 0.55);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.mdls__do--quiet:hover:not(:disabled) {
+  color: rgba(239, 232, 218, 0.85);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(255, 255, 255, 0.28);
+}
+
+.mdls__more {
+  min-width: 28px;
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid rgba(239, 232, 218, 0.22);
+  color: var(--lx-ink-quiet);
+  font: 400 12px var(--lx-mono);
+  cursor: pointer;
+}
+
+.mdls__more:hover {
+  color: var(--lx-parchment);
+}
+
+/*
+  The four things a benchmark does, as a checklist.
+
+  **Ticked, current, coming** — three states and three marks, so a glance answers *how far along*
+  without reading a word. The current one is lit; the ones ahead keep their frame and lose their
+  light, which is the Launcher's rule for an instrument with nothing behind it yet.
+*/
+.mdls__stages {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.mdls__stage {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  align-items: baseline;
+  gap: 6px;
+  font: 400 10px var(--lx-mono);
+  letter-spacing: 0.04em;
+}
+
+.mdls__stage-mark {
+  text-align: center;
+}
+
+.mdls__stage--done {
+  color: rgba(126, 217, 138, 0.85);
+}
+
+.mdls__stage--now {
+  color: var(--lx-gold-lit);
+}
+
+.mdls__stage--next {
+  color: rgba(239, 232, 218, 0.50);
+}
+
+/* A search, which takes twenty minutes and has to look like it is working. */
+.mdls__search {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid rgba(232, 183, 74, 0.32);
+  display: grid;
+  gap: 4px;
+}
+
+/*
+  **What twenty minutes produced, in the place the waiting happened.**
+
+  The same slab as the progress panel it replaces, lit rather than dim: the search's rail is a
+  third-opacity gold because it is work in flight, and this one is an answer.
+*/
+.mdls__done {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.32);
+  border-left: 2px solid var(--lx-gold-lit);
+  display: grid;
+  gap: 5px;
+}
+
+.mdls__search-head {
+  margin: 0;
+  font: 400 10px var(--lx-pixel);
+  color: var(--lx-gold-lit);
+}
+
+.mdls__bar {
+  margin: 4px 0;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(232, 183, 74, 0.28);
+  overflow: hidden;
+}
+
+.mdls__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--lx-gold);
+  /* A width, not an animation: the bar says how many configurations have finished, and a bar
+     that moved on its own would be reporting time rather than progress. */
+  transition: width 240ms linear;
+}
+
+.mdls__testing,
+.mdls__best,
+.mdls__quick {
+  margin: 0;
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-ink);
+}
+
+.mdls__flags {
+  display: block;
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.4);
+  font: 400 9px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.mdls__link {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  border: none;
+  font: 400 9px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mdls__link:hover {
+  color: var(--lx-parchment);
+}
+
+/*
+  Everything behind `⋯`: the runtime picker, TIME IT, BENCHMARK, the sweep, flash attention,
+  speculative decoding, MEASURE and REMOVE.
+
+  The same sunken block `CONFIGURE` uses, in the other accent — two panels on one card should
+  not be two visual languages. Its contents are a column rather than a float, which is what stops
+  a label, a dropdown and three buttons landing on three different lines.
+*/
+.mdls__advanced {
+  /*
+    **Its own row, spanning both columns.** It lived inside the actions column, which is capped at
+    44ch, so the panel overflowed leftward and ran underneath the model's own text. It is not an
+    action; it is a section of the card, and the grid says so.
+  */
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 9px 11px;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid rgba(232, 183, 74, 0.3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The two dropdowns sit together, and a label owns its control. */
+.mdls__advanced .rt__offer {
+  gap: 14px;
+}
+
+.mdls__configure {
+  /*
+    Its own row, spanning both columns — the same as `.mdls__advanced` beside it. Both lived
+    inside the actions column, which is capped at 44ch, so a panel of measured profiles was
+    squeezed into a third of the card with the model's own text left empty beside it.
+  */
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid rgba(199, 155, 245, 0.3);
+  display: grid;
+  gap: 8px;
+}
+
+.mdls__profile-row {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(239, 232, 218, 0.1);
+}
+
+.mdls__profile-name {
+  margin: 0;
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-parchment);
+}
+
+.mdls__profile-num {
+  margin: 0;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-gold-lit);
+}
+
+/*
+  What a profile costs against the fastest one measured.
+
+  Dimmer than the number it follows, because it is the price rather than the reading — but on the
+  same line, because a person choosing LONG CONTEXT has to meet `15x slower` at the moment they
+  are choosing, not in a paragraph underneath.
+*/
+/*
+  What a reply cost, under the reply.
+
+  White and small and in the World's own pixel face, because it belongs to the conversation
+  rather than to a panel about the conversation. Held back to two thirds opacity: it is beside
+  the answer every single time, and a number that competes with the words would make the words
+  harder to read for a fact somebody wants once.
+*/
+.dlg__pace {
+  margin: 2px 0 0;
+  font: 400 7px var(--lx-pixel);
+  color: #fff;
+  opacity: 0.62;
+  letter-spacing: 0.06em;
+}
+
+.mdls__slower {
+  color: var(--lx-ink-quiet);
+}
+
+/*
+  What was measured and is not on offer.
+
+  Set off by a rule and dimmer than the profiles, because these are not recommendations and must
+  not read as a fifth and sixth one. They are also not hidden: an exclusion nobody can see is the
+  same as an exclusion nobody was told about, which is what this section exists to end.
+*/
+.mdls__aside {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lx-edge);
+}
+
+.mdls__aside-row {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  background: var(--lx-sunk);
+  border: 1px solid var(--lx-edge);
+}
+
+.mdls__aside-row .mdls__profile-num {
+  color: var(--lx-ink-quiet);
+}
+
+.mdls__aside-row .mdls__profile-num b {
+  color: var(--lx-ink);
+}
+
+/*
+  A benchmark card, which is five lines rather than one.
+
+  **Three rates per column and they are not collapsed here either.** A column says how accurate
+  the model was on what it answered, how much of the work it finished, and how much of what was
+  asked came back right — and a single figure can only be one of those. So the card gets its own
+  block, scrolling sideways on its own rather than widening the row.
+*/
+.mdls__card {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid rgba(232, 183, 74, 0.22);
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+  overflow-x: auto;
+}
+
+.mdls__card > span {
+  white-space: pre;
+}
+
+.mdls__card > span:first-child {
+  color: var(--lx-parchment);
+}
+
+.mdls__what {
+  min-width: 0;
+}
+
+.mdls__name {
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-parchment);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mdls__from {
+  font: 400 10px var(--lx-mono);
+  color: var(--lx-ink);
+  margin: 2px 0 0;
+}
+
+/* A measurement, lit. Absent rather than estimated - see the component's header. */
+.mdls__rate {
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink);
+  margin: 4px 0 0;
+}
+
+.mdls__rate b {
+  color: var(--lx-gold-lit);
+  font-weight: 400;
+}
+
+.mdls__load {
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink);
+  margin: 2px 0 0;
+}
+
+.mdls__load b {
+  color: var(--lx-parchment);
+  font-weight: 400;
+}
+
+/* Measured, as opposed to the default nobody has improved on. The word, not only a colour. */
+.mdls__measured {
+  color: var(--lx-gold-lit);
+}
+
+/*
+  Where it really is. A path is long and is not what anybody reads first, so it is dim and
+  clipped with the whole of it on `title`. Hiding it entirely would be worse: it is the only
+  thing that says which of two same-named files REMOVE is about to delete.
+*/
+.mdls__path {
+  font: 400 9px var(--lx-mono);
+  color: var(--lx-ink-faint);
+  margin: 4px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 58ch;
+}
+
+.mdls__doing {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 44ch;
+}
+
+/* The one irreversible button in either deck, and it says so. */
+.btn--danger {
+  border-color: rgba(200, 70, 60, 0.7);
+  color: rgb(226, 138, 128);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: rgba(200, 70, 60, 0.18);
+  color: rgb(244, 176, 168);
+}
+
+/*
+  The curve.
+  ----------
+  Context against speed, ordered by context because it is read as *how much conversation do I
+  want* with the price beside each answer. Spans both columns of the row it belongs to.
+*/
+.curve {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 9px 10px 10px;
+  background: rgba(0, 0, 0, 0.32);
+  border-left: 2px solid rgba(232, 183, 74, 0.5);
+}
+
+/*
+  A curve's title and the sentence saying what was measured.
+
+  Two adjacent inline spans with nothing between them, which rendered as
+  `AS THE CONVERSATION FILLS UPeach window filled to about nine tenths`. Both curves carried it;
+  it was only noticed when the second one put the two phrases at the top of a screenshot.
+  Baseline-aligned because the label is pixel type and the sentence is prose, and wrapping because
+  the pair is longer than the panel on a narrow window.
+*/
+.curve__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: 4px;
+}
+
+.curve__row {
+  display: grid;
+  grid-template-columns: 7ch 11ch 11ch 1fr 22ch;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 7px;
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink);
+  text-align: left;
+}
+
+.curve__row:hover:not(:disabled) {
+  border-color: rgba(232, 183, 74, 0.4);
+  color: var(--lx-parchment);
+}
+
+/*
+  The filled ladder's row: window, rate, bar, and nothing else.
+
+  Its own column track because the other curve carries a cache and a note it does not have, and
+  borrowing a five-column grid for three cells puts the bar in an 11ch box. Not pressable, because
+  choosing a window is what the profiles above it are for — a row that highlights under the cursor
+  and does nothing when clicked is a control that isn't one.
+*/
+/*
+  A rung of the filled ladder: window, rate, bar — and pressable.
+
+  Its own column track because the other curve carries a cache and a note it does not have, and
+  borrowing a five-column grid for three cells puts the bar in an 11ch box.
+
+  It was `--flat` and deliberately inert, on the reasoning that the profiles above it were how
+  somebody chose a window. They are not: the profiles cover the ends of the ladder and skip the
+  middle, which is where a model with a gentle curve is worth running.
+*/
+.curve__row--rung {
+  grid-template-columns: 7ch 11ch 1fr;
+}
+
+/* What it will actually load with. */
+.curve__row--on {
+  border-color: rgba(232, 183, 74, 0.8);
+  background: rgba(232, 183, 74, 0.07);
+  color: var(--lx-parchment);
+}
+
+/*
+  Measured, shown, and marked as unusable - never hidden. It is genuinely the fastest row and it
+  genuinely stops mid-answer, and saying both is ADR-0033's rule for an incompatible part.
+*/
+.curve__row--short {
+  opacity: 0.5;
+}
+
+.curve__ctx {
+  color: var(--lx-parchment);
+  text-align: right;
+}
+
+.curve__cache,
+.curve__note {
+  color: var(--lx-ink-faint);
+  font-size: 10px;
+}
+
+.curve__rate {
+  color: var(--lx-gold-lit);
+  text-align: right;
+}
+
+.curve__row:disabled .curve__rate {
+  color: var(--lx-ink-faint);
+}
+
+/*
+  A bar, because the shape is the whole point of the table: flat says take the biggest, a cliff
+  says stay where you are. Derived from the readings on screen, never from a constant.
+*/
+.curve__bar {
+  height: 5px;
+  background: rgba(232, 183, 74, 0.12);
+  display: block;
+}
+
+.curve__bar i {
+  display: block;
+  height: 100%;
+  background: rgba(232, 183, 74, 0.65);
+}
+
+.mws__shelf {
+  display: grid;
+  gap: 6px;
+}
+
+.mws__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mws__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.mws__pick {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-parchment);
+  text-align: left;
+}
+
+.mws__pick:hover {
+  color: var(--lx-gold-lit);
+}
+
+.mws__list em {
+  font: 400 10px var(--lx-mono);
+  font-style: normal;
+  color: var(--lx-ink-faint);
+}
+
+/* A chip whose source has no field for it. Present, and visibly unable to answer. */
+.chip--cold {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- erase data */
+
+.erase {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid rgba(232, 183, 74, 0.18);
+  margin-bottom: 6px;
+}
+
+.erase__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Same grammar as `.setting`: a box, a bold line, a quiet explanation under it. */
+.erase__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+}
+
+.erase__row b {
+  display: block;
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-parchment);
+}
+
+.erase__row i {
+  display: block;
+  font: 400 11px var(--lx-mono);
+  font-style: normal;
+  color: var(--lx-ink-quiet);
+  line-height: 1.5;
+  /* The same cap as every other explanation here: 224 characters, measured. */
+  max-width: var(--lx-read);
+}
+
+/* ------------------------------------------------------------------- removal */
+
+/*
+ * Last in the editor and set apart, because a removal is not one more field: it does not wait
+ * for SAVE and it cannot be undone.
+ */
+.cedit__remove {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(232, 183, 74, 0.18);
+}
+
+.rm {
+  display: grid;
+  gap: 10px;
+}
+
+/*
+  The sentence under a group's name.
+
+  **What a heading cannot say.** `SECURITY` tells you a subject has started; it does not tell you
+  which security — a sign-in, a disk, somebody else's key. One line saying what the group
+  changes is the difference between a name and an answer, and it is the whole reason the imported
+  design's Settings read as grouped where ours read as sectioned.
+*/
+/*
+  ## A group heading, against a block heading inside it
+
+  `.rm__label` is the small gold caps every block on the Settings deck uses — and once the deck
+  was grouped, a group and the first block *inside* that group drew identically: `DOWNLOADS`
+  directly above `HUGGING FACE CLI`, same size, same colour, same weight, one of them a level
+  above the other and nothing saying so.
+
+  **The fix is on the level that was added, not on the one that was already right.** The blocks
+  keep exactly what they had; the group names are larger, brighter and carry the rule this World
+  puts under a heading — so the hierarchy is visible without renaming or restyling anything
+  that existed before the grouping.
+*/
+.rm--group {
+  margin-top: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(232, 183, 74, 0.22);
+}
+
+.rm--group .rm__label {
+  font-size: 11px;
+  color: var(--lx-gold-lit, #e8b74a);
+}
+
+.rm__about {
+  display: block;
+  margin-top: 4px;
+  font: 400 11px var(--lx-sans);
+  color: var(--lx-ink-quiet);
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: var(--lx-read);
+}
+
+.rm__label {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--lx-gold);
+}
+
+/*
+ * **Gold and weight, never a traffic light.**
+ *
+ * The first draft used red, amber and green. That is semantics borrowed from somewhere else —
+ * this Launcher speaks in gold and opacity, and three new colours would have made one window
+ * feel like a different application. The lists differ by brightness instead: what is deleted is
+ * loudest, what survives is quietest, which is the grammar every other panel here already uses.
+ */
+.rm__list {
+  display: grid;
+  gap: 4px;
+  padding: 8px 11px;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid rgba(232, 183, 74, 0.55);
+  font: 400 12px var(--lx-mono);
+  color: var(--lx-ink);
+}
+
+.rm__list--changes {
+  border-left-color: rgba(232, 183, 74, 0.32);
+  color: rgba(239, 232, 218, 0.8);
+}
+
+.rm__list--survives {
+  border-left-color: rgba(232, 183, 74, 0.16);
+  color: var(--lx-ink-quiet);
+}
+
+.rm__heading {
+  font: 500 8px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--lx-ink-faint);
+}
+
+.rm__file {
+  color: var(--lx-parchment);
+  /* A path is scanned, not read. It keeps the width it needs and is exempt from the cap below. */
+  max-width: none;
+}
+
+/*
+  **The cap belongs on the sentences, not on the panel.**
+
+  Measured at 2,560 with the panel open: *"Your conversations stay here…"* ran to **169
+  characters** on one line and the crew sentence to 136, because these are paragraphs living in
+  a block that was free to be as wide as the deck. The eye loses the start of the next line
+  somewhere past ninety, which is the number the rest of this Launcher already holds.
+
+  It was worse before the bay was rearranged, not better — the block used to span the whole
+  1,896-pixel deck rather than the 1,520 of a column. Widening a container is what *exposed*
+  this; it is not what caused it, and moving the cap onto the container would have hidden it
+  again at one width while leaving it broken at every other.
+*/
+/*
+  **In `em`, because `--lx-read` is a pixel cap and pixels are not characters.**
+
+  `--lx-read: 500px` is 90 characters *of the 14px body text it was measured against* — the
+  multiplication is written above the token. Applied to this panel's 11px hint it allows about
+  113, and the sentence stayed over the line while every neighbour came under it: the cap was
+  applied, the rule was still broken, and nothing said so.
+
+  Ninety characters at 14px is 35.7em, so the cap is written that way and holds at any size the
+  text is set in. The token keeps its pixel value where the size it was computed for is the
+  size in use.
+*/
+.rm__list > span,
+.rm > .cc__hint,
+.rm__gate {
+  max-width: var(--lx-read);
+}
+
+.rm__gate {
+  display: grid;
+  gap: 4px;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+.rm__gate b {
+  color: var(--lx-parchment);
+  font-weight: 400;
+}
+
+/* The one button here that ends something. Brighter than its neighbour, and still gold. */
+.rm__go:not(:disabled) {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.75);
+}
+
+.rm__asking {
+  font-style: italic;
+}
+
+/* -------------------------------------------------------------- project root */
+
+/*
+ * Where this World works. Under the viewport because it is a property of the World, not of
+ * the application — and next to the thing that will read it.
+ */
+.proot {
+  margin-top: 10px;
+  padding: 9px 11px;
+  display: grid;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.proot__label {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.proot__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.proot__path {
+  flex: 1;
+  min-width: 0;
+  /* Truncates at the end, with the whole path on hover. A right-to-left trick would put the
+     tail first and reorder `C:\` on a Windows path — a path shown wrong is worse than a path
+     shown short. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 11.5px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.72);
+}
+
+/* The library's path is a button. It keeps the appearance of the project root's path — the two
+   are the same kind of reading and should not look like different things — and gains only what
+   says it can be pressed. */
+.proot__path--open {
+  border: 0;
+  padding: 0;
+  text-align: left;
+  background: none;
+  cursor: pointer;
+}
+
+.proot__path--open:hover:not(:disabled),
+.proot__path--open:focus-visible {
+  outline: 0;
+  color: var(--lx-gold, #d8b25a);
+  text-decoration: underline;
+}
+
+/* A vault that is not there cannot be opened, and a control that does nothing is worse than a
+   control that says it cannot. */
+.proot__path--open:disabled {
+  cursor: default;
+}
+
+.proot--gone {
+  border-color: rgba(216, 178, 90, 0.45);
+}
+.proot--gone .proot__path {
+  color: var(--lx-gold, #d8b25a);
+}
+
+.proot__note {
+  margin: 0;
+  font: 400 11.5px/1.5 var(--lx-body, inherit);
+  color: rgba(239, 232, 218, 0.55);
+}
+
+/*
+ * The hero's left column: the World as seen, and where it works.
+ *
+ * A wrapper rather than a third grid item — dropping the Project Root straight into
+ * `.bay__hero` made it the second column and pushed the brief onto its own row, which is
+ * exactly what a two-column grid does with three children.
+ */
+.bay__left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* A capability the character can ask for and this build cannot yet do. Dimmed, never hidden:
+   what somebody is *for* is worth authoring before the tool exists. */
+.chip--pending {
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------------------------ salvage */
+
+/*
+ * Shown only when a render threw. Plain on purpose: whatever broke, this must not depend on
+ * it, so it uses nothing clever and no data.
+ */
+.salvage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+  background: #0b0a17;
+  color: rgba(239, 232, 218, 0.85);
+}
+
+.salvage h1 {
+  margin: 0;
+  font: 400 16px var(--lx-mono, monospace);
+  letter-spacing: 3px;
+  color: var(--lx-gold, #d8b25a);
+}
+
+.salvage p {
+  margin: 0;
+  max-width: 52ch;
+  font: 400 13px/1.7 var(--lx-body, system-ui);
+}
+
+.salvage__why {
+  padding: 8px 12px;
+  font-family: var(--lx-mono, monospace) !important;
+  font-size: 11.5px !important;
+  color: rgba(239, 232, 218, 0.5) !important;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  user-select: text;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Connections deck                                                            */
+/* -------------------------------------------------------------------------- */
+
+.conn {
+  list-style: none;
+  margin: 12px 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.conn__row {
+  padding: 9px 11px;
+  background: rgba(6, 5, 11, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+}
+
+/* Off is the user's own choice, so it dims rather than warns. */
+.conn__row--off {
+  opacity: 0.55;
+}
+
+.conn__line {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.conn__name {
+  font: 600 13px var(--lx-sans);
+  color: var(--lx-parchment);
+}
+
+.conn__kind {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--lx-ink-faint);
+}
+
+/*
+  An account's reading, in the row that would otherwise hold a probe's.
+
+  Its own class rather than reusing the backend status: the words differ (SIGNED OUT is not
+  OFFLINE, ABSENT is not either) and so does what fixes them. Same weight, same place — a reader
+  should not have to learn two layouts to read one panel.
+*/
+/* A place named in a sentence, made reachable. Styled as text, because it reads as text. */
+.conn__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--lx-gold, #e8b74a);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.conn__state {
+  margin-left: auto;
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.4px;
+  color: var(--lx-ink-faint);
+  white-space: nowrap;
+}
+
+.conn__state--on {
+  color: var(--lx-green, #6fd08c);
+}
+
+/* Accounts sit above the endpoints, and read as a separate kind of thing. */
+.conn--accounts {
+  margin-bottom: 10px;
+}
+
+.conn__where {
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn__status {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.3px;
+  color: var(--lx-ink-faint);
+}
+
+/* Lit only when something actually answered. */
+.conn__status--on {
+  color: var(--lx-green);
+}
+
+.conn__models {
+  margin-top: 5px;
+  font: 400 11px/1.6 var(--lx-mono);
+  color: var(--lx-ink-quiet);
+  word-break: break-word;
+}
+
+.conn__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/*
+  Naming a second sign-in: the field takes the row, and the two answers share the next one.
+
+  `.btn--ghost` is a full-width button, so a bare input beside one reads as a stray box rather
+  than the thing being filled in. The label is the whole content of this step — it is the only
+  fact about the account Epoch did not measure.
+*/
+.conn__naming {
+  width: 100%;
+}
+
+.conn__naming .field {
+  width: 100%;
+}
+
+.conn__naming-answers {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.conn__warn {
+  font: 400 11px var(--lx-sans);
+  color: var(--lx-gold);
+}
+
+.conn__blurb {
+  margin: 0 0 8px;
+  font: 400 12px/1.6 var(--lx-sans);
+  color: var(--lx-ink-quiet);
+}
+
+.conn__edit {
+  margin-top: 10px;
+}
+
+/* What a server is given when it starts: one row per variable, credentials first. */
+.conn__vars {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.conn__var {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr max-content;
+  align-items: center;
+  gap: 8px;
+}
+
+.conn__var > code {
+  font: 400 11px var(--lx-mono, monospace);
+  color: var(--lx-ink);
+  overflow-wrap: anywhere;
+}
+
+.conn__var--add {
+  grid-template-columns: minmax(120px, 1fr) 1fr max-content max-content;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+/* A labelled box. The label is the field's meaning; the placeholder is only an example. */
+.conn__cell {
+  display: grid;
+  gap: 3px;
+}
+
+.conn__cell > span {
+  font: 400 9px var(--lx-sans);
+  letter-spacing: 1px;
+  color: var(--lx-ink-quiet);
+}
+
+.conn__keep {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 400 9px var(--lx-sans);
+  letter-spacing: 1px;
+  color: var(--lx-ink-quiet);
+}
+
+.conn__keep > input {
+  width: auto;
+}
+
+.conn__add {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+/* A reading with nothing behind it yet: framed, unlit, and saying what it is. */
+.cedit__cold {
+  padding: 8px 10px;
+  background: rgba(6, 5, 11, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+}
+
+.cedit__cold b {
+  display: block;
+  font: 600 12.5px var(--lx-sans);
+  color: var(--lx-ink-quiet);
+}
+
+.cedit__cold i {
+  display: block;
+  margin-top: 4px;
+  font: 400 11px/1.6 var(--lx-mono);
+  font-style: normal;
+  color: var(--lx-ink-faint);
+}
+
+/* -------------------------------------------------------------- new World */
+
+/*
+ * Making a World asks three things and refuses to ask more. Providers, parameters, keys and
+ * packs are configuration; asking for them here would turn "make a World" into commissioning
+ * one. The layout says so — it is short, and it fits without scrolling on a normal window.
+ */
+/*
+ * What this window changes about the shared scrim, and nothing else.
+ *
+ * `.overlay` owns the layout and the pointer-events rule; this owns only what is different: it
+ * sits over the Launcher rather than inside the World's HUD, so it is fixed to the window and
+ * stacks above everything, and its backdrop is darker because there is no World behind it worth
+ * seeing through.
+ */
+.nw {
+  position: fixed;
+  z-index: 80;
+  background: rgba(4, 7, 16, 0.78);
+}
+
+.nw__panel {
+  width: min(520px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #121a2c;
+  box-shadow:
+    0 0 0 1px rgba(120, 150, 200, 0.35),
+    0 24px 60px -20px #000;
+}
+
+.nw__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(120, 150, 200, 0.25);
+}
+
+.nw__head h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--lx-gold, #e8c15a);
+}
+
+.nw__x {
+  border: 0;
+  background: none;
+  color: var(--lx-ink-quiet, #8fa3bf);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.nw__x:hover {
+  color: var(--lx-ink, #e8eef7);
+}
+
+.nw__body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nw__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nw__field > span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lx-ink-quiet, #8fa3bf);
+}
+
+.nw__field input {
+  padding: 8px 10px;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--lx-ink, #e8eef7);
+  background: rgba(8, 12, 24, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 200, 0.3);
+}
+
+.nw__field input:focus {
+  box-shadow: inset 0 0 0 1px var(--lx-gold, #e8c15a);
+}
+
+/* The scan. A fixed slot, so the dialog does not jump as readings arrive. */
+.nw__scan {
+  min-height: 54px;
+  padding: 10px 12px;
+  background: rgba(8, 12, 24, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 200, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nw__scan p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.nw__good {
+  color: #6ee7a0;
+}
+
+.nw__bad {
+  color: #ff9d9d;
+}
+
+.nw__quiet {
+  color: var(--lx-ink-quiet, #8fa3bf);
+}
+
+/* The disclosure. Stated, not shouted: it is a decision, not a mistake. */
+.nw__note {
+  color: #d9c48a;
+  border-left: 2px solid rgba(232, 193, 90, 0.5);
+  padding-left: 8px;
+}
+
+.nw__crew {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nw__soul {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--lx-ink, #e8eef7);
+  background: rgba(8, 12, 24, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 200, 0.3);
+}
+
+.nw__soul--on {
+  color: #06202a;
+  background: #7ce8ff;
+  box-shadow: inset 0 0 0 1px #7ce8ff;
+}
+
+/* A face, or an initial in a frame. Never a generated likeness (ADR-0024). */
+.nw__face {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  overflow: hidden;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.nw__face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.nw__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(120, 150, 200, 0.25);
+}
+
+/* A field with a control beside it: type a path, or open the picker. */
+.nw__row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.nw__row input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ----------------------------------------------------- the console readout */
+
+/*
+ * What the crew actually ran, under the controls. A readout, not a transcript: if nothing ran,
+ * nothing is listed and the panel says so rather than filling itself.
+ */
+.console__feed {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(120, 150, 200, 0.2);
+}
+
+.console__feed-head {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--lx-ink-quiet, #8fa3bf);
+  margin-bottom: 6px;
+}
+
+/* The same reservation, stated the same way, with the console's own row count. */
+.console__runs {
+  --row: 19px;
+  min-height: calc(var(--rows, 7) * var(--row));
+  align-content: start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.console__runs li {
+  box-sizing: border-box;
+  height: var(--row);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.console__who {
+  flex: none;
+  color: var(--lx-gold, #e8c15a);
+}
+
+.console__ran {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--lx-ink, #e8eef7);
+  opacity: 0.85;
+}
+
+.console__idle {
+  margin: 0;
+  font-size: 11px;
+  color: var(--lx-ink-quiet, #8fa3bf);
+}
+
+/* An outcome, read at a glance. Failure is an outcome — never an error state. */
+.log__dot--good {
+  background: #6ee7a0;
+}
+.log__dot--bad {
+  background: #ff9d9d;
+}
+.log__dot--wait {
+  background: #e8c15a;
+}
+
+.log__text em {
+  font-style: normal;
+  opacity: 0.65;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------ the agent door */
+
+.door {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.door__note {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--lx-ink-quiet, #8fa3bf);
+}
+
+/* A note under a field: what the choice means, in the field's own place. */
+.cedit__hint {
+  display: block;
+  margin-top: 5px;
+  font-style: normal;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--lx-ink-quiet, #8fa3bf);
+}
+
+/* What a Skill wants and its holder does not have. Said beside the Skill, at the moment it is
+   given — not discovered later in a model's words, three steps into the method. */
+.cc__unmet {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin-left: 6px;
+  color: var(--ep-warn, #d08a30);
+}
+
+
+/*
+  How long the shown pairing code has left.
+
+  Beside the code rather than elsewhere on the panel: the number and its deadline are one fact,
+  and a clock somewhere else is a clock nobody reads while typing on another machine. Its absence
+  cost an evening — a code ran out mid-typing and the only symptom was a failure that named the
+  network.
+*/
+.brg__left {
+  margin-left: 10px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  opacity: 0.6;
+  vertical-align: middle;
+}
+
+/* Expired is a state to act on, not an error. It says what to do next beside it. */
+.brg__left--gone {
+  color: var(--lx-warn, #e8b74a);
+  opacity: 1;
+}
+
+
+/*
+  Whether another machine can reach this one — the one thing that stops a pairing without saying
+  anything. It sits with the machine it describes rather than beside the failure, because by the
+  time the failure exists it is on the *other* machine and it names the network instead.
+*/
+.tm__port {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(6, 5, 11, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.18);
+}
+.tm__port p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Unlit is the honest resting state: nothing is allowed until somebody allows it. */
+.tm__lamp {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(239, 232, 218, 0.22);
+}
+.tm__lamp--on {
+  background: var(--lx-green, #7fd08a);
+  box-shadow: 0 0 6px var(--lx-green, #7fd08a);
+}
+
+/* ==========================================================================
+   The Hugging Face CLI, per machine
+
+   **Gold and weight, never a traffic light** — the same rule the readiness lists follow. Four
+   states differ by brightness: reached and signed in is full gold, installed and signed out is
+   dimmer, absent is dimmer still, and a machine nobody could reach is the dimmest of all
+   because it is the one Epoch knows least about.
+   ========================================================================== */
+
+.hfd__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.hfd__list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hfd__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 7px 9px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  /* A hostname is long and a machine name is somebody's, so neither may push the state off. */
+  min-width: 0;
+}
+
+.hfd__where {
+  font: 500 11.5px var(--lx-sans);
+  color: rgba(239, 232, 218, 0.88);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.hfd__here {
+  margin-left: 7px;
+  font: 500 8.5px var(--lx-mono);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(232, 183, 74, 0.65);
+  font-style: normal;
+}
+
+.hfd__state {
+  font: 500 10px var(--lx-mono);
+  letter-spacing: 0.6px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hfd__state--ready {
+  color: var(--lx-gold);
+}
+
+.hfd__state--out {
+  color: rgba(232, 183, 74, 0.62);
+}
+
+.hfd__state--absent {
+  color: rgba(239, 232, 218, 0.66);
+}
+
+/* Dimmest: a machine that could not be asked is the one Epoch knows least about. */
+.hfd__state--cold {
+  color: rgba(239, 232, 218, 0.52);
+}
+
+.hfd__at {
+  grid-column: 1 / -1;
+  font: 400 10px var(--lx-mono);
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.62);
+  overflow-wrap: anywhere;
+}
+
+/* The install offer: a button and the exact command it will run, side by side. */
+.rt__offer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.rt__offer code {
+  font: 400 10px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.5);
+  overflow-wrap: anywhere;
+}
+
+/*
+  A chosen ratio, and a picture the panel made.
+
+  Two rules rather than a component's worth: everything else on this deck already has a class,
+  and inventing a parallel set for one panel is how two visual languages start.
+*/
+.btn--on {
+  color: var(--lx-parchment);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.75);
+}
+
+.panel__made {
+  max-width: 100%;
+  margin-top: 8px;
+  align-self: start;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* A search result: what it is, where it is from, and what it would cost to fetch. */
+.find__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+.find__name {
+  color: var(--lx-parchment);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+  One asset on the Creation shelf.
+
+  The same card the MCP shelf uses, because a third visual language for the third shelf would be
+  three things to learn about one Workshop.
+*/
+.wk__card > * {
+  min-width: 0;
+}
+
+/* A dropdown inherits its width from its longest option, which is a filename. */
+.wk__card select {
+  max-width: 100%;
+}
+
+.wk__cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wk__cardHead > b {
+  color: var(--lx-parchment);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk__from {
+  flex: none;
+  font: 500 8px var(--lx-mono);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--lx-ink-faint);
+}
+
+.wk__cardWhat {
+  margin: 4px 0 0;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+.wk__cardActs {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* What the family the model was measured as is loaded with — beside the control it applies to,
+   because it is the answer to the question the control asks. Not a warning: nothing is wrong, and
+   nothing is chosen for anybody. */
+.cc__wants {
+  font-style: normal;
+  /* Part of the field's own label, and the thing that says how many files it takes. */
+  color: var(--lx-parchment, #efe8da);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/*
+  Where a long job has got to, on the row it belongs to.
+
+  A track that is empty until the Engine reports a step, rather than an animation that starts
+  the moment a button is pressed. The difference matters: an indeterminate bar says *something
+  is happening* and this says *setting three of eight*, which is the question somebody staring
+  at four minutes of silence is actually asking.
+*/
+.mdls__step {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.mdls__step-track {
+  flex: none;
+  width: 132px;
+  height: 6px;
+  background: rgb(0 0 0 / 0.45);
+  box-shadow: inset 0 0 0 1px var(--gold-deep);
+  overflow: hidden;
+}
+
+.mdls__step-track i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transition: width 240ms linear;
+}
+
+/*
+  The same weights, twice on the disk.
+
+  Marked in the warning tone rather than the quiet one: it is not a property of the model, it is
+  something the user can act on — a spare ten gigabytes with a button already beside it.
+*/
+.mdls__twin {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--gold);
+}
+
+/*
+  One steering: which ControlNet, the picture, how hard, and a way to take it off.
+
+  A row rather than four stacked fields, because they are one decision made four ways — and
+  because several of them stack, and four fields times three rows is a wall nobody reads.
+*/
+.cedit__steer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(90px, 120px) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px;
+  background: rgb(0 0 0 / 0.25);
+  box-shadow: inset 0 0 0 1px var(--gold-deep);
+}
+
+/* The sentence under a row spans it: it is about the row, not about one control in it. */
+.cedit__steer .cedit__hint {
+  grid-column: 1 / -1;
+}
+
+/* The embeddings this server has, as things to press rather than to type. They wrap, because
+   how many there are is a fact about somebody's machine. */
+.cedit__embeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+/* What the ControlNet should read is a question about the whole row, and its answer is what
+   GENERATE waits for — so it gets the row's width rather than a quarter of it. */
+.cedit__steer .cedit__reads {
+  grid-column: 1 / -1;
+}
+
+/* **A hint you must read to use the control, not one you read afterwards.** Both were painted
+   in the same quiet ink, and the sentence that would have saved somebody was the least legible
+   thing on screen (CLAUDE.md, 11.28). */
+.cedit__hint--needed {
+  color: var(--lx-ink, #d8e4f5);
+}
+
+@media (max-width: 780px) {
+  .cedit__steer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------- what a character inherits from MODELS */
+
+/*
+  A reading, drawn as a reading.
+
+  ADR-0026's amendment took the window off the character, which leaves this panel showing a
+  number it cannot change. The frame says whose it is — `Inherited from MODELS` in the corner —
+  and nothing inside it is a control, so nobody spends a moment working out whether the value
+  can be typed over. The one button is a door, not an edit.
+*/
+.runtime {
+  margin-top: 9px;
+  padding: 9px 10px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.runtime__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.runtime__from {
+  font: 500 9px var(--lx-mono);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(239, 232, 218, 0.64);
+}
+
+.runtime__rows {
+  margin: 8px 0 9px;
+  display: grid;
+  gap: 5px;
+}
+
+.runtime__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.runtime__what {
+  font: 400 11px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.55);
+}
+
+.runtime__is {
+  font: 500 13px var(--lx-mono);
+  color: var(--lx-parchment, #efe8da);
+}
+
+/* The qualifier that stops a number being a gauge nobody can attribute. */
+.runtime__note {
+  font-weight: 400;
+  font-size: 10.5px;
+  color: rgba(239, 232, 218, 0.66);
+}
+
+/*
+  Nothing measured, and it keeps its frame and loses its light — the Launcher's rule. It is not
+  greyed *out*: the sentence is the whole information, and the button below it is the fix.
+*/
+.runtime__cold {
+  font: 400 11.5px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.58);
+}
+
+/* -------------------------------------------------------- character context policy */
+
+.policy__rows {
+  margin-top: 5px;
+  display: grid;
+  gap: 3px;
+}
+
+.policy__one {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 7px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.policy__one:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.policy__one--on {
+  background: rgba(216, 178, 90, 0.07);
+  border-color: rgba(216, 178, 90, 0.28);
+}
+
+.policy__one input {
+  margin: 0;
+  accent-color: var(--lx-gold, #d8b25a);
+}
+
+.policy__label {
+  font: 500 12px var(--lx-mono);
+  color: var(--lx-parchment, #efe8da);
+}
+
+.policy__about {
+  font: 400 11px var(--lx-mono);
+  color: rgba(239, 232, 218, 0.66);
+}
+
+/*
+  The name of a group of the main menu.
+
+  ## The refusal this reverses, and why the reason stopped holding
+
+  These were three unlabelled twelve-pixel gaps, and the comment that put them there argued
+  that *proximity is what the eye reads first anyway* and that three headings would turn a
+  ship's bridge into a settings tree. Both halves were true of a list of **nine** items that
+  had just been reordered so the progression read correctly.
+
+  What changed is not the argument, it is the evidence. A design of this Launcher, built
+  independently and driven rather than read, arrived at the same nine decks and named the
+  groups — and naming them is the one thing it did that survives every measurement taken
+  against it. Proximity says *these three belong together*; it cannot say **what** they have
+  in common, and that is the sentence somebody standing in front of nine decks needs.
+
+  **Named, not regrouped.** The order below is the one the owner met and approved, and the
+  reasoning for it is still in `LauncherScreen.tsx`. The imported design groups differently
+  — it puts CONNECTIONS with the crew — and that is measurably wrong for what our deck
+  actually holds: runtimes, providers and the machines a turn may reach. So the contribution
+  taken is *zones should be named*, never *these particular zones*.
+
+  A heading, not a control: no hover, no press, nothing to click. It is the only text on this
+  panel that is neither a deck nor an instrument, so it is the quietest thing on it — dim
+  gold at 10px, above 4.5:1 on the panel's own ground, with the hairline rule every heading in
+  this World carries.
+*/
+.lxnav__zone {
+  margin: 14px 0 3px;
+  padding: 0 2px 5px;
+  font: 400 10px var(--lx-pixel);
+  letter-spacing: 0.08em;
+  color: rgba(232, 183, 74, 0.82);
+  border-bottom: 1px solid rgba(232, 183, 74, 0.22);
+}
+
+/* The first zone sits at the top of the list and needs no space above it. */
+.lxnav__zone:first-child {
+  margin-top: 2px;
+}
+
+/*
+  ## A model's configuration opens to the right (owner, 2026-09-06)
+
+  It opened downward, and it is tall — thirteen measured rows, four offers and a curve. So one
+  press pushed every other model off the screen while a thousand pixels sat empty beside it, and
+  the owner asked for the obvious thing: put it in the space that is already there.
+
+  **This is the shape multicol was not.** A list and the detail of the thing selected in it is a
+  layout whose two halves are deliberately unequal, which is exactly what balancing across
+  columns cannot do — and it keeps the reading order, because the list is still a list.
+
+  Only the open row widens, and only where there is room: 1,020 for the summary, 26 for the
+  gutter and 640 for the panel comes to 1,690, plus the nav and the aside. Below that it opens
+  downward exactly as before — there is nowhere for it to go, and pretending otherwise would
+  squeeze both halves.
+*/
+@media (min-width: 2000px) {
+  .mdls__row--open {
+    /*
+      **The halves share the row; the row does not grow.** The first attempt gave the summary its
+      full 1,020 and told the row to ignore its cap — and measured 22 pixels for the panel,
+      because the row's parent is still capped at `--lx-wide` and a `max-width: none` on a child
+      does not lift a limit on its parent.
+
+      So the summary gives up what the panel needs. Its content measured 442px, so 520 fits it
+      with room, and the panel takes the rest of the 1,100.
+    */
+    max-width: none;
+    grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* The summary keeps the left column; its buttons stay on the row they belong to. */
+  .mdls__row--open > .mdls__what {
+    grid-column: 1;
+  }
+
+  .mdls__row--open > .mdls__doing {
+    grid-column: 1;
+    justify-self: end;
+  }
+
+  /*
+    The panel takes the second column for the whole height of the row, so a long configuration
+    scrolls the deck rather than stretching the summary beside it.
+  */
+  .mdls__row--open > .mdls__configure {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    margin-top: 0;
+  }
+}
+
+/*
+  ## A character's editor opens beside them, not under them (owner, 2026-09-06)
+
+  The same shape as a model's configuration one deck over, and for the same reason: a card and
+  the detail of the thing selected in it are **two halves that are deliberately unequal**, which
+  is what a balancing layout cannot do and what a list-and-detail does naturally.
+
+  The form is nested inside `.cc__body` rather than being a child of the card, so the split
+  happens on the body: who they are on the left, what you are changing on the right. The
+  portrait keeps its own column either way.
+
+  Same threshold as MODELS, and the same reason for it — below 2,000px the editor opens downward
+  as it always did, because there is nowhere beside it to go.
+*/
+@media (min-width: 2000px) {
+  .cc--open .cc__body {
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    /*
+      **Named rows, because the form is taller than everything beside it.**
+
+      With rows left implicit the form occupied row 1 alone, so row 1 became as tall as the form
+      — and the archetype and the world chips were laid out *after* it, eleven hundred pixels
+      below the name they belong to. No overlap, nothing to see on the deck, and the summary was
+      simply somewhere else on the page.
+
+      Four tracks that size to the summary and a flexible last one that takes whatever the form
+      has left over. The form spans all of them, so its height lands in the flexible track
+      instead of stretching the four that carry the text.
+    */
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 20px;
+    align-items: start;
+  }
+
+  /* Everything that says who this is stays in the first column, stacked as before. */
+  .cc--open .cc__body > *:not(.cedit) {
+    grid-column: 1;
+  }
+
+  /*
+    The form takes the second column for the whole height of the card. The rule that separated
+    it becomes a vertical one, because the thing it separates is now beside rather than below.
+  */
+  /*
+    **`1 / -1` again, and this time the rows exist.**
+
+    It was written that way once and collapsed: with no `grid-template-rows`, spanning every row
+    left the grid with exactly one, and the four summary blocks forced into column 1 landed on
+    top of each other — the owner photographed Luffy's name, his archetype and *lives nowhere
+    yet* drawn through one another. Row 1 fixed the overlap and bought a quieter version of the
+    same problem: the summary was pushed below a form eleven hundred pixels tall.
+
+    The declaration was never the defect. **A span is only meaningful over tracks that were
+    declared**, and there were none.
+  */
+  .cc--open .cc__body > .cedit {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: start;
+    margin-top: 0;
+    padding-top: 0;
+    padding-left: 18px;
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.07);
+  }
+}
+
+/*
+  ## The library's shelves, two across on a wide screen (2026-09-06)
+
+  The one place in the Launcher where a balancing layout is the right one. Two columns were
+  tried across whole decks and removed the same day — multicol balances by content height and a
+  deck is one big block and several small ones, so it stranded a heading alone in the first
+  column. **Eleven shelves of the same shape are the opposite case**, and similar blocks are
+  exactly what balancing is for.
+
+  `break-inside: avoid` so a shelf is not cut across the fold, and the same 2,000px threshold
+  the other two panes use: below it one column, because two would be narrower than a filename.
+*/
+@media (min-width: 2000px) {
+  .rdy__list--racks {
+    /*
+      **`display: block`, or the rule is inert.** `.rdy__list` is a grid, and `columns` does
+      nothing on a grid container — the same mistake as the deck-wide attempt earlier today,
+      made a second time in the same file. Measured: eleven shelves, one column, every one at
+      the same left edge. The gap the grid was giving them comes back as a margin.
+    */
+    display: block;
+    columns: 2;
+    column-gap: 26px;
+  }
+
+  .rdy__list--racks > * + * {
+    margin-top: 3px;
+  }
+
+  .rdy__list--racks > * {
+    break-inside: avoid;
+  }
+}
+
+/*
+  ## A row that is a row (owner, 2026-09-06)
+
+  The crew roster and the model shelf were both already lists of full-width rows, and both drew
+  a narrow left-hugging stack with a thousand pixels of nothing beside it — *"que aprovechemos
+  toda la pantalla, no que sea media pantalla"*. The rows were not the problem. **A stack inside
+  a row is.**
+
+  What a wide row is for is putting two different questions side by side: on the left *who is
+  this / what is this*, on the right *what is true of it right now*. Both halves already existed
+  as text; only their arrangement was vertical.
+
+  **Placed explicitly, never auto.** This exact layout has already produced one defect in this
+  file — an editor drawn on top of itself, because `grid-row: 1 / -1` left a single row for four
+  blocks that then collided. Auto-placement in a two-column grid fills row by row, which
+  scatters a list of paragraphs whose order is meaningful. So every child is told its column, and
+  the one that must span both says so.
+
+  **The cap is lifted here and nowhere else.** `--lx-wide` still governs a row that has not been
+  given columns, because a single 2,400-pixel line of text is the thing it was measured to
+  prevent. A row split in two has two shorter lines instead, which is the whole point.
+*/
+/*
+  **Only a closed row.** An open one already has a layout — the editor beside the summary,
+  added the same day, at its own 2,000px threshold — and the two are different arrangements of
+  the same four blocks. Left unscoped, both applied: the editor's rule pinned every block into
+  column one while this one still held the worlds at row one, and the chips drew straight
+  through the name. That is the *identical* collision this file already paid for once, arriving
+  from the other side — not a span that ate the rows, but a second author of the same cells.
+
+  Two layouts over one element must be mutually exclusive in their selectors, not merely
+  different in their intent.
+*/
+@media (min-width: 1560px) {
+  .cc:not(.cc--open) .cc__body {
+    display: grid;
+    grid-template-columns: minmax(300px, 34rem) minmax(280px, 1fr);
+    column-gap: 30px;
+    align-items: start;
+  }
+
+  .cc:not(.cc--open) .cc__head {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cc:not(.cc--open) .cc__meta {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  /*
+    Where they live, beside who they are rather than under it. Two rows tall so it lines up with
+    the name and the brain rather than floating against the top of a taller left column.
+  */
+  .cc:not(.cc--open) .cc__worlds {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+    margin-top: 0;
+  }
+
+  /* Only the row's own note. The same class is used many times inside the editor. */
+  .cc:not(.cc--open) .cc__body > .cc__hint {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
+
+@media (min-width: 1760px) {
+  .mdls__row {
+    max-width: none;
+  }
+
+  .mdls__what {
+    display: grid;
+    grid-template-columns: minmax(320px, 32rem) minmax(300px, 1fr);
+    column-gap: 34px;
+    align-items: start;
+  }
+
+  /*
+    Everything that is not the model's identity is something Epoch measured about it, and all of
+    it belongs in the second column. Stated first so the three below override it.
+  */
+  .mdls__what > * {
+    grid-column: 2;
+  }
+
+  .mdls__name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mdls__from {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .mdls__twin {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+/*
+  ## The bay beside the ship, not under it (owner, 2026-09-06)
+
+  With two Worlds docked at 2,560 the deck spent about 1,400 by 270 pixels on nothing: the
+  berths are a picker laid out as `repeat(auto-fill, minmax(150px, 1fr))`, which builds nine
+  tracks across a wide deck and then puts two thumbnails in the first two. Everything else was
+  empty, and directly under the one thing on the deck worth looking at.
+
+  **`auto-fit` was the obvious fix and is the wrong one.** It collapses the empty tracks, so two
+  Worlds become two seven-hundred-pixel cards — a picker drawn larger than the thing it picks,
+  which is the same inversion as a scrollbar explaining a layout. Neither spelling addresses the
+  actual problem: with two Worlds there is nothing that fills a row that wide, so the row is the
+  wrong shape.
+
+  So the bay becomes a **column**, and the deck becomes list-and-detail — the same shape a
+  model's configuration and a character's editor already use here, and for the same reason: two
+  halves that are deliberately unequal. The berths run down the left at a size a berth should
+  be, the selected World takes the rest, and the empty band is gone because the column is
+  standing in it.
+
+  It also scales the way the row never did. Twenty Worlds in a row is a wrapping grid of
+  thumbnails; twenty in a column is a list, and a list is what a docking bay is.
+
+  **Placed explicitly.** The default is the second column, so the confirmations that appear
+  between the hero and the strip land beside the ship rather than in the bay — and anything
+  added later lands there too, which is the safe default of the two.
+*/
+@media (min-width: 1760px) {
+  .bay__floor {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    /*
+      **Declared, because the hero spans them.** Left implicit, a 510-pixel hero across two auto
+      rows put roughly a hundred of itself into the first one — and the first one is the bay's
+      own heading, which then floated a hundred pixels above the berths it names. Nothing
+      overlapped and the label had simply come off the list.
+
+      The same measurement as the character editor an hour earlier, and the same sentence: a
+      span is only meaningful over tracks that were declared. The heading track sizes to the
+      heading; everything the hero has left over goes into the flexible one.
+    */
+    grid-template-rows: auto 1fr;
+    column-gap: 24px;
+    align-items: start;
+  }
+
+  .bay__floor > * {
+    grid-column: 2;
+  }
+
+  .bay__floor > .bay__strip {
+    grid-column: 1;
+    grid-row: 1;
+    margin-bottom: 8px;
+  }
+
+  .bay__floor > .berths {
+    grid-column: 1;
+    grid-row: 2;
+    /* One berth per row: the column is the list. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bay__floor > .bay__hero {
+    grid-row: 1 / span 2;
+  }
+
+  /*
+    The rule that separated the bay from the ship separated two things that are now beside each
+    other. Removed rather than turned on its side — the column already has an edge.
+  */
+  .bay__floor > .bay__spacer {
+    display: none;
+  }
+
+  /*
+    A berth in a column can afford to be a berth. It was 56 pixels of map because nine of them
+    had to fit across a deck; one of them across 320 does not.
+  */
+  .bay__floor > .berths .berth__tile {
+    height: 104px;
+  }
+
+  /*
+    And the World itself takes the room the bay gave back. The viewport was 392 by 238 because
+    that is what was left beside a brief; with the deck's whole width behind it, the map is the
+    most worth looking at thing on the screen and had been the smallest.
+  */
+  .bay__floor .bay__hero {
+    grid-template-columns: minmax(392px, 36rem) minmax(0, 1fr);
+  }
+
+  /*
+    Grown in both directions rather than one. The viewport is a picture of a World and 392 by 238
+    was never a judgement about how big that picture should be — it was what fitted beside a
+    brief on a narrower deck. Height follows width at the same 3:2 the smaller box already had,
+    because a taller box at the old width would be a different crop rather than a bigger map.
+  */
+  .bay__floor .vp {
+    height: 384px;
+  }
+}
+
+/*
+  Kept as a class of its own only until the token moved to `em`; `.notice` now carries the cap
+  for every notice, so this is the same value said twice and the second one is the token.
+*/
+.notice--read {
+  max-width: var(--lx-read);
+}
+
+/*
+  ## CREATIONS, in two columns (owner, 2026-09-07)
+
+  See the note in `CreationsPanel.tsx` for why the split is by meaning rather than by balance.
+  This is only the geometry.
+
+  The threshold is the same 1,760 the model shelf uses, and below it the wrappers are nothing:
+  two `display: block` divs in a column, which is exactly the deck as it was.
+*/
+@media (min-width: 1760px) {
+  .cr__floor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 30px;
+    align-items: start;
+  }
+
+  /*
+    A rule between two blocks that are now in different columns separates nothing. The one
+    *inside* a column still does its job and is untouched — only the boundary one goes, and it
+    goes by position rather than by a class, because there is nothing different about it except
+    where it ended up.
+  */
+  .cr__floor > .cr__runs > .bay__rule:last-child {
+    display: none;
+  }
+}
+
+/* The other half of the same rule: Chromium honours `scrollbar-width`, and this outlives it. */
+.lx::-webkit-scrollbar,
+.lx *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

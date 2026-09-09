@@ -1,0 +1,24 @@
+[package]
+name = "epoch-setup"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "The program somebody runs before Epoch exists on their machine: it installs Epoch, finds what is already here, and offers the rest."
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# The survey, the plan and the runner all live in the Engine, because the Launcher's own decks
+# answer the same questions and two places answering one question disagree. This carries the
+# weight of the Engine for one screen, and that is cheaper than a second copy of the truth.
+epoch-engine = { path = "../epoch-engine" }
+tauri = { version = "2", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[[bin]]
+name = "epoch-setup"
+path = "src/main.rs"

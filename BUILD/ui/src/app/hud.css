@@ -1,0 +1,3911 @@
+/*
+ * The HUD design system — the pixel-frame vocabulary the World is dressed in.
+ *
+ * Translated from the supplied Tailwind kit into plain CSS, because this project has no
+ * Tailwind and adding it to consume one kit would be a build-system decision made by a
+ * stylesheet. Every primitive, token and animation from the kit is here; only the delivery
+ * changed.
+ *
+ * ## Why the frames are nine-slice shaped even though no slice art exists
+ *
+ * `.frame` draws a hand-made pixel bevel and carries an empty 3×3 grid of slice elements. The
+ * bevel is a placeholder; the grid is the contract. When authored frame art arrives, setting
+ * `--tex-tl` … `--tex-br` replaces the bevel with sprites and **no markup changes**. That is
+ * the same bargain `shape` and `sprite` marks strike in the World itself: an honest drawing
+ * now, an authored one later, one pipeline.
+ *
+ * ## Its own file
+ *
+ * `world.css` styles the *world* — terrain, buildings, figures, camera. This styles the
+ * *instruments over it*. Keeping them apart is what lets a World Pack eventually restyle one
+ * without touching the other.
+ */
+
+:root {
+  /* One pixel of the HUD's own grid. Everything bevelled is a multiple of it. */
+  --px: 2px;
+
+  /*
+   * The HUD speaks in semantic colours first. `--ep-*` remains as the vocabulary the existing
+   * components use, so this is a convergence rather than a second styling system beside them.
+   * A World Pack can still replace the whole drawn frame through `ui.frame.window`; these are
+   * only Epoch's honest fallback when it has no authored window to show.
+   */
+  --background: oklch(16% 0.045 275);
+  --panel-top: oklch(26% 0.06 274);
+  --card: oklch(21% 0.05 274);
+  --panel-bottom: oklch(18% 0.05 274);
+  --popover: oklch(19% 0.05 274);
+  --border: oklch(42% 0.07 272);
+  --foreground: oklch(93% 0.03 90);
+  --muted-foreground: oklch(68% 0.04 265);
+  --gold: oklch(82% 0.15 85);
+  --gold-deep: oklch(55% 0.12 70);
+  --accent: oklch(78% 0.16 165);
+  --arcane: oklch(62% 0.2 300);
+  --destructive: oklch(60% 0.21 25);
+  --shadow-pixel: 4px 4px 0 oklch(10% 0.04 275 / 0.75);
+  --shadow-glow: 0 0 0 2px oklch(82% 0.15 85 / 0.35), 0 0 18px oklch(82% 0.15 85 / 0.35);
+  --radius: 0;
+  --font-display: "Press Start 2P", monospace;
+  --font-body: "VT323", monospace;
+  --ep-void: var(--background);
+  --ep-void-2: var(--panel-bottom);
+  --ep-window: var(--card);
+  --ep-window-2: var(--popover);
+  --ep-panel: oklch(14% 0.04 275);
+  --ep-outline: oklch(10% 0.04 275);
+  --ep-frame-hi: var(--foreground);
+  --ep-frame-lo: var(--muted-foreground);
+  --ep-gold: var(--gold);
+  --ep-gold-dim: var(--gold-deep);
+  --ep-parchment: var(--foreground);
+  --ep-ink: var(--background);
+
+  /* Failure has a colour, because failure is stated rather than hidden (ADR-0025). Nothing
+     else in the palette meant "this went wrong" — HP green and gold were the whole vocabulary. */
+  --ep-warn: var(--destructive);
+  /* A hard error and a finite allowance are different concepts, but they share the same red
+     family. Keeping this semantic alias prevents a missing custom property from silently
+     invalidating a whole meter gradient. */
+  --ep-danger: var(--destructive);
+
+  --ep-hp: var(--accent);
+  --ep-energy: var(--arcane);
+  --ep-xp: var(--gold);
+  --ep-cyan: var(--accent);
+
+  --ep-display: var(--font-display);
+  --ep-body: var(--font-body);
+  /* Already bundled and already loaded; it simply had no name. For output where alignment
+     carries meaning — paths, commands, what a tool printed. */
+  --ep-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud *,
+  .hud::after,
+  .frame * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   Nine-slice frame
+   ========================================================================== */
+
+.frame {
+  position: relative;
+  image-rendering: pixelated;
+  background-color: var(--frame-fill, var(--ep-window));
+  /* Keep `fill` meaningful: the gradient gives it a shared light treatment instead of hiding it. */
+  background-image: linear-gradient(
+    color-mix(in oklch, var(--panel-top) 88%, transparent),
+    color-mix(in oklch, var(--panel-bottom) 88%, transparent)
+  );
+  border: 3px solid var(--ep-gold-dim);
+  outline: 3px solid oklch(12% 0.04 275);
+  box-shadow:
+    inset 0 0 0 1px oklch(82% 0.15 85 / 0.25),
+    var(--shadow-pixel);
+}
+
+/* Invisible until authored slice art is assigned to the --tex-* variables. */
+.frame__slices {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: var(--corner, 12px) 1fr var(--corner, 12px);
+  grid-template-rows: var(--corner, 12px) 1fr var(--corner, 12px);
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.frame__slices > i {
+  display: block;
+  background-repeat: repeat;
+  background-size: 100% 100%;
+}
+
+.frame__slices > i[data-slice="tl"] { background-image: var(--tex-tl, none); background-size: var(--corner, 12px) var(--corner, 12px) }
+.frame__slices > i[data-slice="t"]  { background-image: var(--tex-t, none); background-repeat: repeat-x }
+.frame__slices > i[data-slice="tr"] { background-image: var(--tex-tr, none); background-size: var(--corner, 12px) var(--corner, 12px) }
+.frame__slices > i[data-slice="l"]  { background-image: var(--tex-l, none); background-repeat: repeat-y }
+.frame__slices > i[data-slice="c"]  { background-image: var(--tex-c, none) }
+.frame__slices > i[data-slice="r"]  { background-image: var(--tex-r, none); background-repeat: repeat-y }
+.frame__slices > i[data-slice="bl"] { background-image: var(--tex-bl, none); background-size: var(--corner, 12px) var(--corner, 12px) }
+.frame__slices > i[data-slice="b"]  { background-image: var(--tex-b, none); background-repeat: repeat-x }
+.frame__slices > i[data-slice="br"] { background-image: var(--tex-br, none); background-size: var(--corner, 12px) var(--corner, 12px) }
+
+.frame__body {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * A window this World drew for itself.
+ *
+ * `border-image` is nine-slice in one declaration: the corners are taken from the image and
+ * never stretch, the edges repeat, and `fill` paints the centre. `--skin-slice` is in the
+ * image's own pixels — exactly the number its author would give you if you asked how thick the
+ * frame is — and `border-width` is what that becomes on screen.
+ *
+ * Epoch's own bevel is drawn with `box-shadow` and the slice grid, so both are turned off here
+ * rather than layered underneath: two windows in the same place is worse than either.
+ *
+ * `space` rather than `repeat` for the edges: a repeat that does not divide evenly cuts the last
+ * tile in half, and a half-drawn corner rivet is the kind of thing you cannot unsee.
+ */
+.frame--skinned {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  border-style: solid;
+  /* The author's insets at the author's scale — in screen pixels. */
+  border-width: var(--skin-border);
+  /* And the same insets unitless, because a slice is measured in the image's own pixels. */
+  border-image: var(--skin) var(--skin-slice) fill var(--skin-repeat);
+  /* Pixel art must not be smoothed on the way up, the same rule the World's marks follow. */
+  image-rendering: pixelated;
+  /*
+   * A window narrower than its own two corners has nowhere to put them. Rather than let them
+   * overlap — which damages artwork somebody drew — the window simply does not get that small.
+   * The Engine derives the floor from the insets, because it is a fact about the drawing.
+   */
+  min-width: var(--skin-min-w);
+  min-height: var(--skin-min-h);
+}
+
+.frame--skinned > .frame__slices {
+  display: none;
+}
+
+/* Gold corner studs. */
+.frame__stud {
+  position: absolute;
+  width: calc(var(--px) * 3);
+  height: calc(var(--px) * 3);
+  background-color: var(--ep-gold);
+  box-shadow:
+    0 0 0 var(--px) var(--ep-outline),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--ep-gold-dim);
+  z-index: 2;
+}
+
+.frame__stud[data-c="tl"] { top: calc(var(--px) * 2); left: calc(var(--px) * 2) }
+.frame__stud[data-c="tr"] { top: calc(var(--px) * 2); right: calc(var(--px) * 2) }
+.frame__stud[data-c="bl"] { bottom: calc(var(--px) * 2); left: calc(var(--px) * 2) }
+.frame__stud[data-c="br"] { bottom: calc(var(--px) * 2); right: calc(var(--px) * 2) }
+
+/* Recessed sub-panel. */
+.inset {
+  position: relative;
+  background-color: var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-frame-lo);
+}
+
+/*
+  The one action inside a failure notice.
+
+  Inline with the sentence, because it *is* part of the sentence: the notice names what went
+  wrong and this is the thing that ends it. A separate row would read as an unrelated control.
+*/
+.dlg__signin {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 2px;
+  padding: 1px 8px;
+}
+
+/* The raised gold banner on a window's shoulder. */
+.plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 2px solid var(--ep-gold-dim);
+  background: linear-gradient(oklch(34% 0.08 273), oklch(24% 0.06 274));
+  color: var(--ep-gold);
+  box-shadow:
+    inset 0 1px 0 oklch(82% 0.15 85 / 0.3),
+    var(--shadow-pixel);
+  font: 400 10px var(--ep-display);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.epbtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  cursor: pointer;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--ep-parchment);
+  background: linear-gradient(oklch(35% 0.07 273), oklch(24% 0.06 274));
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.18),
+    3px 3px 0 oklch(10% 0.04 275 / 0.8);
+  /* Stepped, not eased: this world does not have sub-pixel motion. */
+  transition: transform 60ms steps(2, end), box-shadow 60ms steps(2, end), filter 100ms;
+  user-select: none;
+}
+
+.epbtn:hover:not(:disabled) {
+  color: var(--ep-gold);
+  filter: brightness(1.25);
+}
+
+.epbtn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.1);
+}
+
+.epbtn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7) brightness(0.6);
+  color: var(--ep-frame-lo);
+}
+
+.epbtn--on {
+  background: linear-gradient(oklch(38% 0.08 273), oklch(27% 0.06 274));
+  box-shadow:
+    inset 0 0 0 1px var(--ep-gold),
+    3px 3px 0 oklch(10% 0.04 275 / 0.8);
+}
+
+.epbtn--primary {
+  background: linear-gradient(oklch(88% 0.16 88), var(--ep-gold));
+  color: var(--ep-ink);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    3px 3px 0 oklch(10% 0.04 275 / 0.8);
+}
+
+/* ==========================================================================
+   Selection cursor
+   ========================================================================== */
+
+.epcursor {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  color: var(--ep-gold);
+  animation: ep-bob-x 0.6s steps(2) infinite alternate;
+}
+
+@keyframes ep-bob-x {
+  from { transform: translateX(0) }
+  to { transform: translateX(4px) }
+}
+
+@keyframes ep-blink {
+  0%, 49% { opacity: 1 }
+  50%, 100% { opacity: 0.25 }
+}
+
+.ep-blink { animation: ep-blink 0.9s steps(1) infinite }
+
+/* ==========================================================================
+   Status bars
+   ========================================================================== */
+
+.epbar {
+  position: relative;
+  flex: 1;
+  height: var(--h, 10px);
+  background-color: var(--ep-panel);
+  border: 2px solid var(--border);
+  box-shadow: inset 0 0 0 1px oklch(0% 0 0 / 0.6);
+  overflow: hidden;
+}
+
+.epbar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: repeating-linear-gradient(90deg, var(--bar, var(--arcane)) 0 4px, oklch(72% 0.19 300) 4px 8px);
+  transition: width 400ms steps(12, end);
+}
+
+.epbar__fill--striped {
+  background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0 2px, transparent 2px 6px);
+  animation: ep-bar-scroll 0.6s linear infinite;
+}
+
+@keyframes ep-bar-scroll {
+  from { background-position: 0 0 }
+  to { background-position: 12px 0 }
+}
+
+.epbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.epbar-row__label {
+  flex: none;
+  width: 32px;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ep-frame-hi);
+}
+
+/* ==========================================================================
+   Portrait frame
+   ========================================================================== */
+
+.epportrait {
+  position: relative;
+  background-color: var(--ep-panel);
+  box-shadow:
+    0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 var(--px) var(--ep-gold),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 3) var(--ep-gold-dim);
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+
+.epportrait img,
+.epportrait svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  image-rendering: pixelated;
+  /* Immersion leak: artwork must not be draggable out as a file. */
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.epportrait__none {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font: 400 7px var(--ep-display);
+  letter-spacing: 0.14em;
+  color: var(--ep-frame-lo);
+}
+
+/* ==========================================================================
+   Pixel icon slot
+   ========================================================================== */
+
+.epicon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  background-color: var(--ep-panel);
+  color: var(--ep-frame-lo);
+  box-shadow:
+    0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 var(--px) var(--ep-frame-lo);
+  image-rendering: pixelated;
+}
+
+/* ==========================================================================
+   Atmosphere
+   ========================================================================== */
+
+.ep-shadow-text {
+  text-shadow: var(--px) var(--px) 0 var(--ep-outline);
+}
+
+@keyframes ep-slide-in {
+  from { transform: translateX(24px); opacity: 0 }
+  to { transform: translateX(0); opacity: 1 }
+}
+
+.ep-notify { animation: ep-slide-in 0.24s steps(4) }
+
+/*
+ * Scrolling, with nothing drawn to say so.
+ *
+ * ## An immersion leak, and the one this World had
+ *
+ * These were a gold thumb in a bevelled track with arrow buttons — a careful pixel imitation of a
+ * scrollbar, which is still a scrollbar. It ran the full height of the right rail *over* the
+ * frames, so it read as a bar cutting through the instruments rather than as part of them, and
+ * the arrow sat on top of the last row of MODELS. Correct, and it reminded you that you were
+ * inside software (`CLAUDE.md`, immersion leaks).
+ *
+ * ## What tells you there is more
+ *
+ * A row clipped at the bottom edge of a bounded list. That is the honest affordance and it was
+ * always the stronger one: it is the content itself saying it continues, so nothing here hides
+ * information — it hides the widget.
+ *
+ * ## And it is no longer only the World (owner, 2026-09-07)
+ *
+ * This said *only the World's own surfaces use this class, so the Launcher's lists keep the
+ * platform scrollbar they are drawn against*, and the owner pointed at Setup's and said no.
+ * He is right and the sentence was drawing a line in the wrong place: the Launcher is the
+ * bridge of a docked ship and Setup is drawn in the same pixel face — neither of them is a
+ * document, and the argument that removed the widget from the World never depended on which
+ * surface it was.
+ *
+ * **Nothing becomes unreachable.** Hiding a scrollbar does not stop a wheel, a trackpad, a key
+ * or a scroll into view; it removes the drawn control and keeps every way of moving. What is
+ * given up is the *indicator*, and the clipped row is the replacement — which is the same
+ * trade this class has already been making inside the World.
+ */
+.ep-scroll {
+  /* The standard property. Chromium honours it, and so does the `::-webkit-` rule below — both
+   * are kept because the first is the one that will outlive the second. */
+  scrollbar-width: none;
+}
+
+.ep-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ==========================================================================
+   HUD layout — the instruments over the World
+   ========================================================================== */
+
+/*
+ * The single most important rule on this screen.
+ *
+ * The HUD covers the World, so it must not *capture* the World. Nothing here takes pointer
+ * events except the panels themselves, which turn them back on. Dragging across the gap
+ * between the sidebars pans the camera exactly as it did before there was a HUD — the World
+ * did not become a background image, it is still underneath and still live.
+ */
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  pointer-events: none;
+  font-family: var(--ep-body);
+  color: var(--ep-parchment);
+  /* Keeps the negative scanline layer inside this HUD's stacking context, above the World but
+   * behind every instrument. */
+  isolation: isolate;
+  /* An immersion leak: a HUD you can select the text of is a web page again. */
+  user-select: none;
+}
+
+/* A restrained CRT grain binds the fallback panels to the pixel World without putting a
+ * translucent film over it. It belongs behind the instruments, never above a button or the
+ * conversation, so the World remains both legible and directly manipulable. */
+.hud::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.16;
+  background: repeating-linear-gradient(
+    0deg,
+    rgb(255 255 255 / 0.08) 0 1px,
+    transparent 1px 4px
+  );
+  animation: hud-scanlines 2.4s steps(4) infinite;
+}
+
+@keyframes hud-scanlines {
+  from { background-position-y: 0 }
+  to { background-position-y: 16px }
+}
+
+/*
+ * Named one by one rather than with `.hud > *`.
+ *
+ * `.hud > *` would hand events to `.hud__middle`, which is the band the World shows through,
+ * and turning it back off again relies on which rule happens to come later in the file. Two
+ * equal-specificity rules deciding whether the camera works is not a thing to leave to source
+ * order — so only the panels that need input ask for it.
+ */
+.hud__bar,
+.hud__dock,
+.hud__side > *,
+.hud__toast-slot {
+  pointer-events: auto;
+}
+
+/* --------------------------------------------------------------- the top bar */
+
+.hud__bar-body {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+}
+
+.hud__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hud__who-name {
+  margin: 0;
+  font: 400 9px var(--ep-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ep-parchment);
+}
+
+.hud__who-role {
+  margin: 6px 0 0;
+  font: 400 8px var(--ep-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ep-frame-lo);
+}
+
+.hud__allowances {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hud__plan-usage { min-width: 166px }
+
+.hud__plan-title {
+  margin: 0 0 5px;
+  color: var(--ep-parchment);
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Which account the gauge above belongs to, in the agent's own words. Absent for an agent that
+   cannot be asked — the label in the title is the whole name there. */
+.hud__plan-who {
+  margin: 0 0 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 9px var(--ep-body);
+  color: var(--ep-frame-lo);
+}
+
+.hud__plan-row {
+  display: grid;
+  grid-template-columns: 40px minmax(72px, 132px) 26px;
+  align-items: center;
+  gap: 4px;
+  color: var(--ep-frame-hi);
+  font: 400 6px var(--ep-display);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.hud__plan-track {
+  display: block;
+  height: 12px;
+  padding: 2px;
+  border: 2px solid var(--ep-outline);
+  background: var(--ep-panel);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-frame-lo), 1px 1px 0 var(--ep-ink);
+}
+
+.hud__plan-track i {
+  display: block;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--ep-cyan) 0 5px, oklch(80% 0.12 210) 5px 7px);
+}
+
+.hud__plan-usage--claude .hud__plan-track i {
+  background: repeating-linear-gradient(90deg, #bd7cff 0 5px, #dbaaff 5px 7px);
+}
+
+.hud__plan-usage--codex .hud__plan-track i {
+  background: repeating-linear-gradient(90deg, var(--ep-gold) 0 5px, #ffe187 5px 7px);
+}
+
+.hud__plan-row b {
+  color: var(--ep-frame-lo);
+  font: inherit;
+  text-align: right;
+}
+
+.hud__world-facts {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 400 8px var(--ep-display);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.hud__world-facts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hud__clock { color: var(--ep-hp) }
+.hud__clock--stopped { color: var(--ep-gold) }
+
+.hud__clock i {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hud__menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+@media (max-width: 1260px) {
+  .hud__bar-body { grid-template-columns: minmax(160px, 1fr) auto auto }
+  .hud__menu { grid-column: 1 / -1; justify-content: flex-end }
+}
+
+/* --------------------------------------------------------------- the middle */
+
+.hud__middle {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+}
+
+/*
+ * The column is a hole; the cards in it are not. A sidebar with a scrollbar and only two short
+ * cards would otherwise capture the whole left third of the World.
+ */
+/*
+ * The side columns.
+ *
+ * The right one is resizable, and only the Terminal uses the extra room: the map and the model
+ * list are lists of short things, and stretching them would spend the World's space on
+ * whitespace. So they keep their natural width and sit against the outer edge, and the column
+ * widens *around* them.
+ */
+.hud__side--right > .frame:not(.hud__card--grows) {
+  width: 208px;
+  align-self: flex-end;
+}
+
+.hud__side {
+  width: 208px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/*
+ * A rail scrolls; the cards in it are not compressible.
+ *
+ * Measured 2026-08-25 in the running window, with three cards open: the left rail was 699px
+ * tall, its cards held 227px, 148px and 1150px of content — and they had been squeezed to
+ * 114px, 83px and 486px. A flex item shrinks by default and a `.frame` does not clip, so every
+ * card was painting its own contents out over the card below it. The rail's `overflow-y: auto`
+ * never engaged, because nothing ever overflowed it: the children gave way first.
+ *
+ * `flex: none` is what makes the scroller above real. Without it the column is a scroller with
+ * nothing to scroll, which looks exactly like a layout that works right up until a second crew
+ * member arrives.
+ */
+.hud__side > .frame {
+  flex: none;
+}
+
+/*
+ * And a card that scrolls inside itself takes the rail's spare height instead of a fixed slice.
+ *
+ * `max-height: 30vh` got the cards out of each other's way and left the rail slightly taller than
+ * it could hold: 191 + 347 + 187 against 699, so the Terminal's bottom bevel was cut off by eight
+ * pixels and the rail grew a scrollbar to say so. With the scrollbar now drawn as nothing
+ * (`.ep-scroll`), a clipped frame would be the only sign left — an instrument cut in half with no
+ * explanation, which is worse than the widget was.
+ *
+ * So the cards that *can* give way do: a list with no natural length shrinks to fit the rail and
+ * grows into whatever is spare, and every frame is drawn whole. `min-height` is the floor at
+ * which they stop and the rail scrolls instead — a window too short for three instruments is a
+ * real case, and squeezing them into nothing is where this started.
+ */
+.hud__side > .frame.hud__card--fills {
+  /*
+   * **Never taller than its content; smaller when the rail cannot hold it.**
+   *
+   * `flex: 1 1 auto` shared the rail's spare height between these three, which is right on a
+   * short window and wrong on a tall one: maximised at 2560x1369 the rail was 1149px, CREW held
+   * two crew members and was handed 338px, and MODELS was handed 761px for a list capped at
+   * 438px. The result was three instruments with dead bands inside them and an inner bevel drawn
+   * across each panel — read, correctly, as the list being cut off.
+   *
+   * A card grows to what it has and stops. The spare height stays where it is honest: at the
+   * bottom of the rail, as World.
+   */
+  flex: 0 1 auto;
+  /*
+   * **And no one card takes more than half the rail** — measured against the rail, which is the
+   * box it is in. A percentage here resolves against `.hud__side`, whose height is definite
+   * because its parent stretches it; the `vh` cap this replaces measured the *window*, which is
+   * how a 438px list ended up drawn inside a 761px card.
+   *
+   * With it, a maximised rail shows CREW and MODELS whole and scrolls only the list that is
+   * genuinely long. Without it, twelve open Workflows push the crew off the top of the column.
+   */
+  max-height: 55%;
+  min-height: 148px;
+  display: flex;
+}
+
+/* The height has to be handed down explicitly: each of these is a box the card is nested in, and
+ * a flex child refuses to shrink below its content without `min-height: 0`. */
+.hud__card--fills > .frame__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  /*
+   * **The same rule on the other axis, and this is the box it was needed on.**
+   *
+   * `.frame` is a *row* flex here, so this body is a flex item along the horizontal main axis —
+   * and a flex item's automatic minimum size is its content's. `gemma4:12b` beside `READY` has a
+   * min-content width of 370px, so the body refused to shrink into its 208px frame and every row
+   * of MODELS was drawn past the frame's right edge.
+   *
+   * Measured in the window rather than deduced, and the first guess was wrong: putting this on
+   * `.hud__card` changed nothing, because the box that would not give way was its parent. Rows
+   * ran 1236 → 1590 inside a frame ending at 1430; they now end at 1417. The row's label always
+   * had `text-overflow: ellipsis` — it never got the chance to use it.
+   */
+  min-width: 0;
+}
+
+.hud__card--fills .hud__card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Both axes, all the way down: one box that will not give way is enough to push a row out. */
+  min-width: 0;
+}
+
+/* Both rails retain a solid backplate as their content changes. The World is intentionally
+ * visible *between* instruments; an empty workflow must not turn its own instrument into a
+ * transparent hole. */
+.hud__side--left > .frame,
+.hud__side--right > .frame {
+  background-color: var(--ep-window);
+}
+
+.hud__centre {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * A notice belongs to the World, so it arrives from the World rather than from off-screen.
+ *
+ * It rises from where it sits and leaves the same way, on the same clock the notice itself
+ * runs on - so the last thing the user sees is it going, not it vanishing between frames. The
+ * `steps()` is the same one every other movement here uses: this world does not ease.
+ */
+.hud__toast-slot {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  width: min(420px, 92%);
+  pointer-events: auto;
+  animation: hud-notice 2.6s steps(5) both;
+}
+
+@keyframes hud-notice {
+  0%   { transform: translate(-50%, 14px); opacity: 0 }
+  6%   { transform: translate(-50%, 0);    opacity: 1 }
+  92%  { transform: translate(-50%, 0);    opacity: 1 }
+  100% { transform: translate(-50%, 8px);  opacity: 0 }
+}
+
+/* The slot owns the movement, so the notice inside it must not slide sideways as well. */
+.hud__toast-slot .ep-notify { animation: none }
+
+/*
+ * The conversation sits low and centred, the way a dialogue box does in a game: over the world,
+ * under the eyeline, leaving the place you are standing in visible above it.
+ */
+/*
+ * Over the whole band, not inside the middle column.
+ *
+ * `max-width: 96%` of a `flex: 1` column meant the conversation was squeezed whenever a sidebar
+ * grew — the box the user dragged, silently shrinking because something else got bigger. The
+ * slot now spans the band, shrink-wraps its child, and imposes no ceiling of its own: the width
+ * is a thing the user dragged, and the box's own measured bounds are what stop it.
+ */
+/*
+ * The band the conversation sits in, spanning the whole width rather than starting at the
+ * centre.
+ *
+ * It used to be `left: 50%; transform: translateX(-50%); width: auto`, which shrink-to-fits an
+ * absolutely positioned box — so its available width ran from the centre of the screen to the
+ * right edge, and `.dlg`'s own `min(var(--dlg-w), 100%)` resolved that `100%` to **half the
+ * window**. Past that the box stopped growing while the drag kept counting, and dragging back
+ * did nothing until the stored width fell under the cap again. The offset accumulated instead
+ * of staying constant, which is exactly what "the box does not follow the cursor" feels like.
+ *
+ * Measured: a 1416px window capped the box at 735px.
+ *
+ * `pointer-events: none` on the band and `auto` on the box, named individually. A full-width
+ * band that took pointer events would swallow every click meant for the World behind it — the
+ * HUD covers the World and must never capture it.
+ */
+.hud__dialogue-slot {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hud__dialogue-slot > * {
+  pointer-events: auto;
+}
+
+.dlg {
+  width: min(var(--dlg-w, 680px), 100%);
+}
+
+/*
+ * The box keeps the shape it was dragged to.
+ *
+ * Every row below the log comes and goes with what is happening — an invitation, an undo, a
+ * failure notice, the standing decisions — and each one used to change the height of the whole
+ * box. A window that moves under the cursor while you are reading it is the same class of
+ * defect as a viewport welded to the world's extent: correct sizing, wrong thing sized.
+ *
+ * So the total is fixed at (chosen log height + CHROME) and the log is the only thing that
+ * flexes. A notice costs a little scrollback, which comes back; it does not move the window.
+ */
+.dlg__body {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 12px;
+  height: calc(var(--dlg-log, 190px) + var(--dlg-chrome, 168px));
+}
+
+/*
+ * The resize grip: the top-right corner, where pulling up means taller and pulling out means
+ * wider. Anchored bottom-centre, so the box grows away from the edge it is sitting on.
+ */
+.dlg__grip {
+  position: absolute;
+  top: calc(var(--px) * -2);
+  right: calc(var(--px) * -2);
+  width: 22px;
+  height: 22px;
+  z-index: 3;
+  cursor: nesw-resize;
+  touch-action: none;
+  background:
+    linear-gradient(45deg, transparent 46%, var(--ep-gold) 46%, var(--ep-gold) 54%, transparent 54%),
+    linear-gradient(45deg, transparent 66%, var(--ep-gold-dim) 66%, var(--ep-gold-dim) 74%, transparent 74%);
+  opacity: 0.55;
+}
+
+.dlg__grip:hover { opacity: 1 }
+
+.dlg__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dlg__who {
+  flex: 1;
+  min-width: 0;
+}
+
+.dlg__state {
+  margin: 7px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.14em;
+  color: var(--ep-frame-hi);
+}
+
+.dlg__close,
+.dlg__aside {
+  flex: none;
+  padding: 7px 10px;
+}
+
+/*
+ * The lamp over a conversation: is this brain on the card right now?
+ *
+ * Two things in one control, and the CSS keeps them apart on purpose. `--lit` is the
+ * **reading** — measured from the server that holds the model — and paints the lamp.
+ * `--on` is the **switch**, and paints the button's own frame. They are allowed to disagree:
+ * a held model evicted by llama.cpp's router is `--on` without `--lit`, and a model somebody
+ * loaded in LM Studio's own window is `--lit` without `--on`. A single class would have made
+ * that impossible to draw and, worse, impossible to notice.
+ */
+.keepwarm {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+}
+
+.keepwarm__lamp {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  /* Square, not round: everything else in this World is drawn on the pixel grid. */
+  background: var(--ep-frame-lo);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.55);
+  opacity: 0.55;
+}
+
+/* Not loaded is not an error, so the dark lamp is unlit rather than red. */
+.keepwarm--lit .keepwarm__lamp {
+  background: var(--ep-hp);
+  opacity: 1;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.45),
+    0 0 5px var(--ep-hp);
+}
+
+/*
+ * The switch, and it may not be carried by colour alone.
+ *
+ * It was: `--on` changed the text from grey to gold and nothing else, so a 64x22 button with a
+ * 7px lamp on it had two states that read as one. Reported as *"after the first answer KEEP goes
+ * off"* — the intent had not moved at all (measured through the window: `holding` stayed true
+ * across the turn and after it), the lamp had gone out because llama.cpp slept the model, and
+ * there was nothing on the button solid enough to tell those two apart by eye.
+ *
+ * A gauge nobody can read is the same failure as a gauge with nothing behind it.
+ */
+.keepwarm--on {
+  color: var(--ep-gold);
+  background: color-mix(in oklab, var(--ep-gold) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ep-gold);
+}
+
+/*
+ * Let go on purpose, which is now the exception the other way round.
+ *
+ * Faded rather than crossed out: the button still works, and a control that looks broken is a
+ * control people stop pressing. It is deliberately quieter than the plain button rather than
+ * louder — the person chose this and does not need reminding of it every time they look.
+ */
+.keepwarm--off {
+  opacity: 0.55;
+}
+
+.dlg__title {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.dlg__title:disabled { cursor: default }
+
+/*
+ * A Quest is titled from what the user actually asked for, so it is as long as a sentence. The
+ * plate is `white-space: nowrap` — correct for a label, and it made a long title run out past
+ * the window frame.
+ *
+ * Cut with an ellipsis rather than wrapped: the plate is a single raised banner and a
+ * two-line one stops reading as one. The whole title is still reachable — it is the button you
+ * press to rename, and the full text is in `title`.
+ */
+.dlg__title {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dlg__title .plate {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.dlg__title:hover:not(:disabled) .plate {
+  box-shadow: 0 0 0 var(--px) var(--ep-outline), inset 0 0 0 var(--px) var(--ep-gold);
+}
+
+.dlg__rename {
+  display: flex;
+  gap: 6px;
+}
+
+.dlg__rename input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 6px 9px;
+  font: 400 12.5px var(--ep-body);
+  color: var(--ep-parchment);
+  background: var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-gold);
+  user-select: text;
+}
+
+.dlg__rename input:focus { outline: 0 }
+
+/* Somebody was named and has not answered. An offer, never an action. */
+.dlg__invite {
+  margin-top: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgba(70, 183, 255, 0.08);
+  box-shadow: inset 0 0 0 var(--px) rgba(70, 183, 255, 0.5);
+  font: 400 12.5px var(--ep-body);
+  color: var(--ep-parchment);
+}
+
+.dlg__invite span { flex: 1; min-width: 140px }
+
+.dlg__log {
+  margin-top: 10px;
+  padding: 10px;
+  /* `min-height: 0` or a flex child refuses to shrink below its content and the box grows
+     again by another route — the failure this whole rule exists to remove. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dlg__empty {
+  margin: 0;
+  font: 400 12.5px/1.6 var(--ep-body);
+  color: var(--ep-frame-lo);
+}
+
+.dlg__line {
+  margin: 0 0 10px;
+  font: 400 15px/1.62 var(--ep-body);
+  color: var(--ep-parchment);
+  /* The one place in the World where reading matters more than immersion. */
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.dlg__line:last-child { margin-bottom: 0 }
+
+.dlg__line b {
+  display: block;
+  margin-bottom: 3px;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.14em;
+  font-weight: 400;
+}
+
+.dlg__line--user b { color: var(--ep-frame-hi) }
+.dlg__line--assistant b { color: var(--ep-gold) }
+
+/* A native-browser action dressed as prose: the Chronicle stays readable, but web addresses do work. */
+.dlg__inline-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: var(--px) solid currentColor;
+  background: none;
+  color: var(--ep-frame-hi);
+  cursor: pointer;
+  font: inherit;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.dlg__inline-link:hover,
+.dlg__inline-link:focus-visible {
+  color: var(--ep-gold);
+  outline: 0;
+}
+
+/* The safe vocabulary of `RichChronicle`: ordinary prose is still compact; structural blocks
+   make a long answer scannable without turning the dialogue into an unrelated document editor. */
+.dlg__rich {
+  display: grid;
+  gap: 8px;
+}
+
+.dlg__rich > * { margin: 0 }
+
+.dlg__rich p {
+  white-space: pre-wrap;
+}
+
+.dlg__rich-heading {
+  color: var(--ep-frame-hi);
+  font: 400 10px/1.45 var(--ep-display);
+  letter-spacing: 0.08em;
+}
+
+.dlg__rich h2 { font-size: 12px }
+.dlg__rich h3 { font-size: 10.5px }
+.dlg__rich h4 { color: var(--ep-gold) }
+
+.dlg__rich-list {
+  margin-left: 18px;
+  padding: 0;
+}
+
+.dlg__rich-list li { padding-left: 2px }
+.dlg__rich-list li + li { margin-top: 3px }
+
+.dlg__rich code {
+  padding: 1px 3px;
+  font: 400 0.9em var(--ep-mono);
+  color: var(--ep-frame-hi);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.dlg__rich-code {
+  position: relative;
+  overflow: auto;
+  max-height: 320px;
+  padding: 9px 10px;
+  color: var(--ep-parchment);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-outline);
+  white-space: pre;
+}
+
+.dlg__rich-code[data-language]::before {
+  content: attr(data-language);
+  display: block;
+  margin: -2px 0 6px;
+  color: var(--ep-gold-dim);
+  font: 400 7px var(--ep-display);
+  letter-spacing: 0.12em;
+}
+
+.dlg__rich-code code {
+  padding: 0;
+  color: inherit;
+  background: none;
+}
+
+.dlg__rich-table-wrap {
+  overflow-x: auto;
+  box-shadow: inset 0 0 0 var(--px) var(--ep-outline);
+}
+
+.dlg__rich-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 11px/1.45 var(--ep-body);
+}
+
+.dlg__rich-table th,
+.dlg__rich-table td {
+  min-width: 110px;
+  padding: 5px 7px;
+  border: var(--px) solid rgba(124, 139, 231, 0.42);
+  text-align: left;
+  vertical-align: top;
+}
+
+.dlg__rich-table th {
+  color: var(--ep-gold);
+  background: rgba(216, 178, 90, 0.08);
+  font-weight: 500;
+}
+
+.dlg__rich-table td { color: var(--ep-parchment) }
+
+/* A restricted Mermaid/flow fence becomes boxes and arrows, never a third-party interpreter. */
+.dlg__flow {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  color: var(--ep-parchment);
+  background: rgba(101, 231, 161, 0.045);
+  box-shadow: inset 0 0 0 var(--px) rgba(101, 231, 161, 0.38);
+}
+
+.dlg__flow-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.dlg__flow-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dlg__flow-node {
+  max-width: min(220px, 100%);
+  padding: 4px 6px;
+  color: var(--ep-parchment);
+  background: rgba(14, 22, 65, 0.9);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-frame-lo);
+  overflow-wrap: anywhere;
+}
+
+.dlg__flow-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ep-energy);
+  font: 400 15px/1 var(--ep-display);
+}
+
+.dlg__flow-arrow em {
+  color: var(--ep-frame-hi);
+  font: 400 9px var(--ep-body);
+}
+
+.dlg__caret { color: var(--ep-gold) }
+
+/* `position: relative` because the dismiss inside it is absolute. Without it the button
+   anchored to some ancestor and landed nowhere useful — present in the markup, invisible on
+   screen, which is indistinguishable from not having been added. */
+.dlg__failed {
+  position: relative;
+  margin: 0;
+  padding: 8px 26px 8px 10px;
+  font: 400 12.5px/1.6 var(--ep-body);
+  color: #ffd0a0;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold-dim);
+  user-select: text;
+}
+
+.dlg__failed code {
+  font-family: var(--lx-mono, monospace);
+  color: var(--ep-gold);
+}
+
+.dlg__ask {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  /* The field grows upward; the button stays where the hand expects it. */
+  align-items: flex-end;
+}
+
+/* The slash palette belongs to the draft, not to the World. It is anchored to the one field
+   whose first character opened it, so resizing the dialogue never leaves it behind. */
+.dlg__compose {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.dlg__compose textarea { width: 100%; }
+
+.dlg__file-input { display: none; }
+
+.dlg__attachments,
+.dlg__chronicle-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.dlg__attachment,
+.dlg__chronicle-attachments span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--ep-frame-lo);
+  background: color-mix(in srgb, var(--ep-panel) 82%, var(--ep-energy) 18%);
+  padding: 2px 5px;
+  font: 400 9px/1.2 var(--ep-mono, monospace);
+  color: var(--ep-frame-hi);
+}
+
+.dlg__attachment b { color: var(--ep-energy); font-weight: 400; }
+.dlg__attachment span { color: var(--ep-frame-lo); }
+.dlg__attachment button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ep-frame-hi);
+  font: 400 13px/0.8 var(--ep-mono, monospace);
+  cursor: pointer;
+}
+.dlg__attachment button:hover,
+.dlg__attachment button:focus-visible { color: var(--ep-gold); outline: 0; }
+.dlg__attachment-error {
+  margin: 4px 0 0;
+  color: var(--ep-gold);
+  font: 400 10px/1.35 var(--ep-body);
+}
+
+/* Pictures waiting to be sent. Small enough to recognise and no larger — the draft is the
+   message, and a thumbnail that dominates the composer makes the words look like the caption. */
+.dlg__images {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.dlg__image {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--ep-frame-lo);
+  background: color-mix(in srgb, var(--ep-panel) 82%, var(--ep-energy) 18%);
+  padding: 3px 5px;
+  font: 400 9px/1.2 var(--ep-mono, monospace);
+  color: var(--ep-frame-hi);
+}
+
+.dlg__image img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  /* Pixel art is the house style, and a screenshot scaled down deserves the same honesty:
+     no invented in-between pixels. */
+  image-rendering: pixelated;
+}
+
+.dlg__image b { color: var(--ep-energy); font-weight: 400 }
+
+.dlg__image button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ep-frame-hi);
+  font: 400 13px/0.8 var(--ep-mono, monospace);
+  cursor: pointer;
+}
+
+.dlg__image button:hover,
+.dlg__image button:focus-visible { color: var(--ep-gold); outline: 0 }
+
+/* The whole width, under the thumbnails: it is about all of them, and it must not be the thing
+   somebody's eye skips on the way to SAY. */
+.dlg__image-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ep-gold);
+  font: 400 10px/1.35 var(--ep-body);
+}
+
+/* In the Chronicle the picture *is* the message, so it is given room — bounded by the dialogue
+   rather than by a fixed number, because the user chooses how large this window is. */
+.dlg__chronicle-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+/* The picture is a control now: clicking it opens the file. The button carries no chrome of its
+   own — a frame around a frame — and says what it does by the cursor and by lifting its border. */
+.dlg__shared-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.dlg__shared-open:hover .dlg__shared-image,
+.dlg__shared-open:focus-visible .dlg__shared-image {
+  border-color: var(--ep-gold);
+}
+
+.dlg__shared-image {
+  display: block;
+  max-width: min(100%, 360px);
+  max-height: 320px;
+  border: 1px solid var(--ep-frame-lo);
+  object-fit: contain;
+}
+
+/*
+  A video sizes itself, where a picture is sized by its own pixels.
+
+  `<video>` has an intrinsic 300x150 until its metadata arrives, and `max-width` alone leaves it
+  at that — so a 704x480 render drew inside a box the wrong shape and letterboxed itself in
+  black. Measured in the window, which is the only place it shows: the element is the frame here,
+  and giving it a width and `height: auto` makes the frame the video's shape instead.
+*/
+video.dlg__shared-image {
+  width: min(100%, 360px);
+  height: auto;
+}
+
+/*
+  Sound has nothing to look at, so the control strip is the whole of it.
+
+  The browser's own player, deliberately: a hand-drawn transport would be a second thing that
+  has to know about buffering, seeking and duration, and the one the platform ships already
+  does. It is the same trade the file dialog gets — Epoch draws what is Epoch's.
+*/
+/*
+  Sound, in the World's own hand.
+
+  **A fixed width, because a percentage of nothing is nothing.** Measured in the window when this
+  was still the browser's player: it drew at `width: 0`. `min(100%, 360px)` resolves against the
+  button around it, and that button is content-sized — an `<img>` gives it a width by having one
+  of its own, and an `<audio>` has no intrinsic size at all. So the parent was 0 wide, the 100%
+  was 0, and a player that had loaded perfectly was invisible.
+
+  The same shape as the `32vh` card: a percentage is about the box it resolves against, and the
+  box was the wrong one. Here there is no right box to point at, so the number is the number.
+*/
+.dlg__sound {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 360px;
+  padding: 6px 8px;
+  border: 1px solid var(--ep-frame-lo);
+  background: rgb(0 0 0 / 0.28);
+}
+
+.dlg__sound-go {
+  flex: none;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--ep-frame-lo);
+  background: rgb(0 0 0 / 0.35);
+  color: var(--ep-gold);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dlg__sound-go:hover,
+.dlg__sound-go:focus-visible {
+  border-color: var(--ep-gold);
+}
+
+/* Square ends and a hard edge: everything in this World is drawn on the pixel grid. */
+.dlg__sound-line {
+  flex: 1;
+  height: 8px;
+  border: 1px solid var(--ep-frame-lo);
+  background: rgb(0 0 0 / 0.45);
+  cursor: pointer;
+}
+
+.dlg__sound-far {
+  display: block;
+  height: 100%;
+  background: var(--ep-gold);
+}
+
+.dlg__sound-len {
+  flex: none;
+  font-size: 10px;
+  color: var(--ep-frame-lo);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Why it did not open, where the click was. */
+.dlg__shared-said {
+  display: block;
+  margin-top: 4px;
+  color: var(--ep-gold);
+  font: 400 10px/1.35 var(--ep-body);
+  font-style: normal;
+  text-align: left;
+}
+
+/* A row with words in it rather than a picture: the frame is the picture's, so it goes. */
+.dlg__shared-open--plain {
+  border-color: transparent;
+  padding: 0;
+}
+
+.dlg__shared-image--gone {
+  padding: 6px 8px;
+  border: 1px dashed var(--ep-frame-lo);
+  color: var(--ep-gold);
+  font: 400 10px/1.35 var(--ep-body);
+}
+.dlg__drop-hint,
+.dlg__attachment-only {
+  margin: 5px 0 0;
+  color: var(--ep-energy);
+  font: 400 10px/1.35 var(--ep-body);
+}
+.dlg__drop-hint {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: calc(100% + 6px);
+  padding: 5px 7px;
+  border: 1px solid var(--ep-energy);
+  background: var(--ep-panel);
+}
+.dlg__attach { padding: 8px 9px; }
+
+.dlg__slash {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  bottom: calc(100% + 6px);
+  width: min(480px, 100%);
+  max-height: min(340px, calc(100vh - 190px));
+  overflow-y: auto;
+  padding: 8px;
+  color: var(--ep-parchment);
+  background: var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-frame-lo),
+    0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+.dlg__slash-head,
+.dlg__slash-section {
+  display: grid;
+  gap: 3px;
+  padding: 5px 7px;
+}
+
+.dlg__slash-head b,
+.dlg__slash-section b {
+  font: 400 9px var(--ep-display);
+  letter-spacing: 0.13em;
+  color: var(--ep-gold);
+}
+
+.dlg__slash-head span,
+.dlg__slash-section span {
+  font: 400 10.5px/1.45 var(--ep-body);
+  color: var(--ep-frame-lo);
+  overflow-wrap: anywhere;
+}
+
+.dlg__slash-action {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  margin: 3px 0;
+  padding: 7px;
+  border: 0;
+  text-align: left;
+  color: var(--ep-parchment);
+  background: rgba(216, 178, 90, 0.1);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold-dim);
+  cursor: pointer;
+}
+
+/* Hover and the keyboard highlight are one appearance on purpose: the mouse sets the same
+   highlight the arrows move, so there is never a second thing that looks chosen. */
+.dlg__slash-action:hover,
+.dlg__slash-action:focus-visible,
+.dlg__slash-action--on {
+  outline: 0;
+  color: var(--ep-gold);
+  background: rgba(216, 178, 90, 0.18);
+}
+
+.dlg__slash-action--on {
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold);
+}
+
+.dlg__slash-action b { font: 400 11px var(--ep-mono, monospace); }
+.dlg__slash-action span { font: 400 10.5px/1.4 var(--ep-body); }
+
+.dlg__ask textarea {
+  flex: 1;
+  min-width: 0;
+  /* Height is measured from the text, not from a row count that clipped it. */
+  resize: none;
+  min-height: 56px;
+  overflow-y: auto;
+  border: 0;
+  padding: 8px 10px;
+  font: 400 13.5px/1.5 var(--ep-body);
+  color: var(--ep-parchment);
+  background: var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-frame-lo);
+  user-select: text;
+}
+
+.dlg__ask textarea:focus {
+  outline: 0;
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-gold);
+}
+
+.dlg__ask textarea:disabled { color: var(--ep-frame-lo) }
+
+.dlg__send {
+  flex: none;
+  padding: 8px 16px;
+}
+
+@media (max-width: 1100px) {
+  .hud__side--right { display: none }
+}
+
+@media (max-width: 820px) {
+  .hud__side { display: none }
+}
+
+/* ------------------------------------------------------------------- cards */
+
+.hud__card {
+  padding: 8px;
+  background: linear-gradient(oklch(22% 0.05 274 / 0.72), oklch(16% 0.04 275 / 0.72));
+}
+
+.hud__card > .plate {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.hud__card-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/*
+ * And no one card may eat the rail.
+ *
+ * Once the cards stopped shrinking, thirteen models and a dozen open Workflows simply pushed
+ * the crew off the top of the column — correct layout, useless instrument. A list that has no
+ * natural length keeps its own bounded scroll instead, so every card's title stays reachable
+ * however much work is open.
+ *
+ * **The bound is the rail, not the window.** It was `max-height: 32vh`, which is a slice of the
+ * viewport rather than of the column the card is actually in — so a maximised window capped the
+ * list at 438px inside a card 761px tall and drew the list's own edge across the panel. The cap
+ * had been written to stop one list eating the rail; that job belongs to the card above, where
+ * the other two cards are, and a second rule measuring a different box could only ever disagree
+ * with it.
+ *
+ * So: fill the card, and scroll when there is more than the card can hold.
+ */
+.hud__card-list--scrolls {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  /*
+   * Named, rather than left to the browser. `overflow-y: auto` beside an unset `overflow-x`
+   * computes x as `auto` too, which is a sideways scroller nobody asked for — and now an
+   * invisible one. A long model name ellipsises; it never scrolls.
+   */
+  overflow-x: hidden;
+}
+
+/* An empty panel is still part of the interface. Dimming its whole frame made the World show
+ * through it, so "no workflows" looked like a broken or transparent panel rather than an
+ * honest empty state. Its copy already says there is nothing open; the surface stays solid. */
+.hud__card--dormant { opacity: 1 }
+
+/* ---------------------------------------------------------------- missions */
+
+/*
+  History, over the World.
+
+  It covers the stage the way a conversation does, and for the same reason: you are reading, not
+  glancing. The scrim is what makes it a window rather than a panel that happens to be large.
+*/
+/*
+ * Every window over the World, and the one rule that kept being forgotten.
+ *
+ * The HUD's band is `pointer-events: none` so the World stays reachable through the gaps, and
+ * every panel turns it back on *for itself* — never with `.hud > *` (`CLAUDE.md`). A window
+ * added without that line renders perfectly and cannot be touched, which is exactly what
+ * happened to Missions: its ✕ was drawn, aimed at, and clicked straight through to the World.
+ *
+ * It is here now, on the class `Overlay` always writes, so the next window cannot forget it.
+ */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 8, 20, 0.55);
+  pointer-events: auto;
+}
+
+.missions {
+  width: min(560px, 100%);
+  /*
+    Bounded by the viewport, not by a parent that has no height of its own.
+
+    `100%` resolved against an unsized grid item, so nothing constrained the list and the rows
+    ran straight out through the bottom of the frame, taking the page bar with them.
+  */
+  max-height: min(620px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+  /* The frame is the edge of this window; content may not be drawn past it. */
+  overflow: hidden;
+  padding: 12px 14px 10px;
+}
+
+/*
+  The constraint has to reach the list, and one element stands between them.
+
+  `Frame` puts its children inside `.frame__body`, so `.missions` being a flex column arranged
+  *the body* and nothing inside it. The list kept its content height, the window clipped it, and
+  the two rows that did not fit went out through the bottom with the page bar behind them — the
+  same defect as before, one element further in. With 54 conversations the page bar was gone
+  entirely, so a list of four pages looked like a list of one.
+*/
+.missions > .frame__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.missions__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.missions__count {
+  flex: 1 1 auto;
+  font: 400 9px var(--ep-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ep-frame-lo);
+}
+
+.missions__none {
+  padding: 12px 2px;
+}
+
+.missions__list {
+  flex: 1 1 auto;
+  /*
+    A flex item's floor is its content unless told otherwise, so `overflow-y: auto` alone does
+    nothing — the list simply grew and pushed everything below it out of the box.
+  */
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+
+.missions__row {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  cursor: pointer;
+}
+
+/*
+  A picture this World made, in the list of what it made.
+
+  Small on purpose: this is a row somebody scans, not a gallery. It is the thumbnail's job to
+  make the row identifiable in one glance — the picture itself opens when the row is pressed.
+
+  `float` rather than a grid column: the row is a grid of two rows already, and a picture is not
+  a third field. Floating it lets the text wrap beside it without every other row in the window
+  gaining an empty column for the ones with no picture.
+*/
+.missions__thumb {
+  float: left;
+  width: 40px;
+  height: 40px;
+  margin: 0 8px 2px 0;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border: 1px solid rgba(232, 183, 74, 0.35);
+}
+
+.missions__row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.missions__row--on {
+  background: rgba(216, 178, 90, 0.12);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold-dim);
+}
+
+.missions__row b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 13px/1.4 var(--ep-body);
+  color: var(--ep-parchment);
+}
+
+.missions__facts {
+  display: flex;
+  gap: 10px;
+}
+
+.missions__facts i {
+  font-style: normal;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.1em;
+  color: var(--ep-frame-lo);
+}
+
+/* Still going. The only lit word in the row, because it is the only one that is a state. */
+.missions__facts i.on {
+  color: var(--ep-gold);
+}
+
+/*
+  The shared page bar, wearing the World's clothes.
+
+  The markup is `Pager`'s — one clamp, one set of edge cases — and only the appearance is local.
+  The Launcher's bar would be legible here and it would look like a web control that wandered into
+  a pixel window, which is an immersion leak arriving through a refactor.
+*/
+.missions .pager {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: var(--px) solid var(--ep-frame-lo);
+}
+
+.missions .pager__page {
+  min-width: 22px;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ep-parchment);
+  font: 400 10px var(--ep-display);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.missions .pager__page:disabled {
+  color: var(--ep-frame-lo);
+  cursor: default;
+}
+
+.missions .pager__page--on {
+  background: rgba(216, 178, 90, 0.18);
+  color: var(--ep-gold);
+}
+
+/*
+  The conversations you have going.
+
+  A list of buttons rather than rows with a click handler: switching conversation is navigation,
+  and navigation should be reachable by keyboard without anything being added for it.
+*/
+.hud__chats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.hud__chats li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud__chat {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  padding: 4px 6px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hud__chat:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* The one you are looking at. Exactly one, always. */
+.hud__chat--on {
+  background: rgba(216, 178, 90, 0.12);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold-dim);
+}
+
+.hud__chat b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 12px/1.35 var(--ep-body);
+  color: var(--ep-parchment);
+}
+
+/*
+ * One line, like the title above it.
+ *
+ * `3 SAID · NO EVIDENCE` is wider than a 208px rail at this letter-spacing, so it wrapped to two
+ * lines and then, in a card that had been squeezed, straight out through the bevel. The title
+ * had been given the ellipsis treatment and its own subtitle had not.
+ */
+.hud__chat i {
+  font-style: normal;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ep-frame-lo);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+  The open Quest, in the HUD.
+
+  One line for what it is and one for how it is going — the same two facts the conversation's
+  own header carries, because they are the same Quest and a second set of words for it would be
+  a second version of the truth.
+*/
+.hud__quest {
+  display: grid;
+  gap: 3px;
+}
+
+.hud__quest-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud__quest-line b {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 12px/1.4 var(--ep-body);
+  color: var(--ep-parchment);
+}
+
+.hud__quest-shut {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ep-frame-lo);
+  font: 400 11px var(--ep-mono, monospace);
+  cursor: pointer;
+}
+
+.hud__quest-shut:hover {
+  color: var(--ep-gold);
+}
+
+.hud__quest i {
+  font-style: normal;
+  font: 400 9px var(--ep-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ep-frame-lo);
+}
+
+.hud__empty {
+  margin: 0;
+  padding: 2px 0;
+  font: 400 12px/1.5 var(--ep-body);
+  color: var(--ep-frame-lo);
+}
+
+/* --------------------------------------------------------------------- rows */
+
+.hud__row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: oklch(15% 0.04 275 / 0.9);
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+}
+
+button.hud__row { cursor: pointer }
+
+button.hud__row:hover {
+  background: oklch(25% 0.06 274 / 0.95);
+  color: var(--ep-gold);
+}
+
+.hud__row--on {
+  background-color: var(--ep-window-2);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-gold);
+}
+
+.hud__row--dim { opacity: 0.6 }
+
+.hud__row-cursor {
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.hud__row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 12px var(--ep-body);
+  color: var(--ep-parchment);
+}
+
+.hud__row-right {
+  flex: none;
+  font: 400 7px var(--ep-display);
+  letter-spacing: 0.14em;
+  color: var(--ep-frame-hi);
+}
+
+/* The crew is a small status card, not a generic list row: these two readings belong to the
+ * person and to the active Quest. A card without ALLOWANCE is a local model, not an empty plan. */
+.hud__crew-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  color: var(--ep-parchment);
+  background: oklch(15% 0.04 275 / 0.9);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hud__crew-card:hover {
+  background: oklch(25% 0.06 274 / 0.95);
+  color: var(--ep-gold);
+}
+
+.hud__crew-card--on {
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-gold);
+}
+
+.hud__crew-cursor {
+  position: absolute;
+  left: -4px;
+  top: 15px;
+}
+
+.hud__crew-card-head,
+.hud__crew-meter-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud__crew-card-head > b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 12px var(--ep-body);
+}
+
+.hud__crew-card-head > em,
+.hud__crew-meter-head {
+  font-style: normal;
+  font: 400 7px var(--ep-display);
+  letter-spacing: 0.12em;
+}
+
+.hud__crew-card-head > em { color: var(--ep-frame-hi) }
+
+/*
+ * What thinks for them.
+ *
+ * Quieter than the name and quieter than the meters: it is a fact that rarely changes, and the
+ * card's loud parts are the ones that move. Truncated rather than wrapped - a long model id
+ * must not make one crew card twice the height of the next.
+ */
+.hud__crew-brain {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 9px var(--ep-body);
+  color: var(--ep-parchment);
+  opacity: 0.62;
+}
+
+/*
+  What actually answered, when an agent routed to something other than what was asked for.
+  Quieter than the brain above it: the brain is the assignment, this is an observation about one
+  turn, and an observation that shouted would read as the more important of the two.
+*/
+.hud__crew-thought {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 9px var(--ep-body);
+  color: var(--ep-parchment);
+  opacity: 0.4;
+}
+
+/* No brain is a real state, and it reads as a warning rather than as a name. */
+/*
+ * Whose sign-in, beside what thinks.
+ *
+ * Deliberately quieter than the brain and on the same line: it is a qualifier of that fact, not
+ * a second one. It only ever appears when the machine has two accounts of one program, which is
+ * the case where two cards were otherwise identical.
+ */
+.hud__crew-account {
+  font-style: normal;
+  color: var(--ep-gold);
+  opacity: 0.85;
+}
+
+.hud__crew-brain--none {
+  color: var(--ep-warn);
+  font-style: italic;
+  opacity: 1;
+}
+
+/*
+ * A balance, not a gauge.
+ *
+ * Deliberately without a track: credits have no ceiling to be a fraction of, and drawing one
+ * would invent a denominator. It sits under the window bars because that is the order the
+ * question arrives in - how much of the plan is left, and then what happens when it runs out.
+ */
+.hud__plan-credits {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 3px 0 0;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.12em;
+  color: var(--ep-frame-lo);
+}
+
+.hud__plan-credits > b {
+  font-weight: 400;
+  color: var(--ep-gold);
+}
+
+.hud__crew-meter { display: grid; gap: 3px }
+
+.hud__crew-meter-head > i {
+  flex: 1;
+  font-style: normal;
+  color: var(--ep-frame-lo);
+}
+
+.hud__crew-meter-head > b {
+  font-weight: 400;
+  color: var(--ep-frame-hi);
+}
+
+.hud__crew-meter-track {
+  display: block;
+  height: 12px;
+}
+
+/* Allowance is the crew's finite plan reserve. It gets its own danger/red cadence rather than
+ * inheriting the generic purple second stripe from .epbar__fill. */
+.hud__crew-meter-track--allowance > .epbar__fill {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ep-danger) 0 4px,
+    color-mix(in srgb, var(--ep-danger) 48%, #18070a) 4px 8px
+  );
+}
+
+/*
+ * Context is cyan, whether or not it is proportional.
+ *
+ * `.epbar__fill` takes its first colour from `--bar` and keeps a generic purple for the second
+ * stripe, so a crew member whose agent reports a real ceiling drew a cyan-and-purple bar while
+ * one whose agent does not drew cyan-and-cyan. Same instrument, same conversation, two colour
+ * schemes - and the difference read as meaning rather than as an oversight.
+ */
+.hud__crew-meter-track--context > .epbar__fill {
+  background: repeating-linear-gradient(90deg, var(--ep-cyan) 0 4px, oklch(52% 0.1 210) 4px 8px);
+}
+
+/* Some signed-in CLIs disclose consumed tokens but deliberately do not disclose the size of the
+ * context window. A moving, fixed-width band is an instrument for that known activity, not a
+ * counterfeit "38% remaining" gauge. */
+.hud__crew-meter-track > .epbar__fill--indeterminate {
+  background: repeating-linear-gradient(90deg, var(--ep-cyan) 0 4px, oklch(52% 0.1 210) 4px 8px);
+}
+
+/*
+ * Both meters scroll their own stripes.
+ *
+ * The movement is in the pattern, never in the width: the fill still ends exactly where the
+ * reading says. It is the difference between an instrument that is live and one that is a
+ * picture - a plan being spent and a window filling are both happening while you look at them.
+ *
+ * Slow, and honoured by the reduced-motion rule at the top of this file.
+ */
+.hud__crew-meter-track--allowance > .epbar__fill,
+.hud__crew-meter-track--context > .epbar__fill {
+  animation: ep-bar-scroll 0.75s linear infinite;
+}
+
+.hud__crew-meter--cold { opacity: 0.72 }
+.hud__crew-meter--cold .hud__crew-meter-track > i { display: none }
+
+/* ----------------------------------------------------------------- the map */
+
+.hud__map {
+  position: relative;
+  height: 120px;
+  padding: 4px;
+}
+
+/* ------------------------------------------------------------ the terminal
+ *
+ * What the crew is running, as it runs. Every line is a real capability run — so this scrolls
+ * rather than growing, and it never reserves space for output that does not exist.
+ */
+
+.hud__term {
+  /* Height is the user's, set on the element. No max-height here: two rules deciding how tall
+     a resizable panel is means the drag stops working at a boundary nobody can see. */
+  padding: 6px;
+  overflow-y: auto;
+  font-family: var(--ep-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.hud__term-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgb(255 255 255 / 6%);
+  word-break: break-word;
+}
+
+.hud__term-line:last-child { border-bottom: 0 }
+
+.hud__term-who {
+  color: var(--ep-gold);
+  text-transform: uppercase;
+}
+
+.hud__term-what { color: var(--ep-parchment) }
+
+/* Still going. The word, not a spinner: a spinner is a picture of waiting, and this panel
+ * exists so that waiting has a subject. */
+.hud__term-run {
+  color: var(--ep-gold-dim);
+  animation: term-breathe 1.4s ease-in-out infinite;
+}
+
+/* What the program printed, verbatim. Its own line, monospaced and dimmer than the sentence
+ * above it: this is the machine talking, not Epoch. */
+.hud__term-out {
+  width: 100%;
+  padding-left: 8px;
+  color: var(--ep-parchment);
+  opacity: 0.72;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* The bottom edge of the Terminal, dragged to resize. Full width so it is easy to hit — a
+ * 4px target is a thing you fight rather than use. */
+.hud__term-grip {
+  height: 12px;
+  margin-top: 2px;
+  /* Both axes, and the cursor says so: down is taller, left is wider. */
+  cursor: nesw-resize;
+  touch-action: none;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--ep-gold-dim) 0 2px,
+      transparent 2px 6px
+    ) center / 100% 2px no-repeat;
+  opacity: 0.5;
+}
+
+.hud__term-grip:hover { opacity: 1 }
+
+.hud__term-detail {
+  width: 100%;
+  color: var(--ep-parchment);
+  opacity: 0.62;
+}
+
+/* Failure is stated, never hidden. A Terminal that only showed successes would be the
+ * propaganda ADR-0025 warns about, at panel scale.
+ *
+ * And it is stated in a *word*, for the same reason `running` is one: a hue on a single word in a
+ * 10px font is not a statement. Four lines went past — two refused, two the retry that worked —
+ * and they read as one thing tried four times. */
+.hud__term-line--bad .hud__term-what { color: var(--ep-warn) }
+
+.hud__term-bad {
+  color: var(--ep-warn);
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.08em;
+}
+
+@keyframes term-breathe {
+  0%, 100% { opacity: 0.45 }
+  50% { opacity: 1 }
+}
+
+/* ---------------------------------------------------------------- the dock */
+
+.hud__dock-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px;
+}
+
+.hud__dock-travel,
+.hud__dock-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud__dock-layout { justify-content: flex-end }
+
+.hud__dock-title {
+  color: var(--ep-frame-hi);
+  font: 400 7px var(--ep-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hud__dock-layers {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 2px;
+}
+
+/*
+ * The layout switches are the same button as everything else on this bar.
+ *
+ * They had their own size, their own letter-spacing and their own cyan on-state, which made one
+ * row of the World's bar look like it came from a different interface. A control that behaves
+ * like its neighbours should look like its neighbours; the only thing special about these is
+ * what they toggle.
+ */
+
+@media (max-width: 840px) {
+  .hud__dock-body { align-items: flex-start }
+  .hud__dock-layout { justify-content: flex-start }
+}
+
+.hud__dock-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  background: var(--ep-gold);
+  color: var(--ep-ink);
+  font: 400 7px var(--ep-display);
+  box-shadow: 0 0 0 var(--px) var(--ep-outline);
+}
+
+/* --------------------------------------------------------------- the toast */
+
+.hud__toast { width: 100% }
+
+.hud__toast-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.hud__toast-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  box-shadow: 0 0 0 var(--px) var(--ep-outline), inset 0 0 0 var(--px) var(--c);
+}
+
+.hud__toast-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.hud__toast-title {
+  margin: 0;
+  font: 400 9px var(--ep-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.hud__toast-msg {
+  margin: 5px 0 0;
+  font: 400 13px/1.4 var(--ep-body);
+  color: rgba(244, 241, 228, 0.9);
+  /*
+   * Two lines, then an ellipsis. A Quest's title is written by a model and can run to a
+   * paragraph; a notice that grows to fit one stops being a notice and becomes a wall over
+   * the World.
+   */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------- working */
+
+/*
+ * What a character is doing, as opposed to saying. Distinct from a line of dialogue on
+ * purpose: the World renders work differently from talk (ADR-0018), and this is the answer to
+ * "why has nothing appeared for ten seconds".
+ */
+.dlg__work {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font: 400 12px var(--ep-body);
+  color: var(--ep-frame-hi);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.dlg__work em {
+  font-style: normal;
+  color: var(--ep-frame-lo);
+}
+
+/* Still happening. The caret elsewhere blinks for the same reason: something really is. */
+.dlg__work--live { color: var(--ep-parchment) }
+.dlg__work--failed { color: #ffd0a0 }
+
+/* Waiting on the user. Not a modal — a character asking you something. */
+.dlg__await {
+  margin: 4px 0 10px;
+  padding: 9px 11px;
+  /*
+    Opaque, with the gold wash on top of it.
+
+    This was the wash alone, which was right while the panel only ever sat *inside* the
+    Chronicle, over the box's own background. An agent's approval draws over the conversation,
+    and a translucent one let the sentence underneath read straight through the question — the
+    one moment in the World where the user must be able to read exactly what they are agreeing
+    to.
+  */
+  background:
+    linear-gradient(rgba(216, 178, 90, 0.08), rgba(216, 178, 90, 0.08)),
+    var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-gold-dim),
+    0 6px 22px rgba(0, 0, 0, 0.5);
+  user-select: text;
+}
+
+.dlg__await p {
+  margin: 0;
+  font: 400 12.5px/1.6 var(--ep-body);
+  color: var(--ep-parchment);
+}
+
+.dlg__await b {
+  display: block;
+  margin-bottom: 3px;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.14em;
+  color: var(--ep-gold);
+}
+
+/*
+  The scope of the permission, and it is not a footnote.
+
+  It was drawn in the frame's quiet colour, the one used for labels nobody has to read, and it
+  disappeared into the panel. "For this turn only" is the single most important sentence in this
+  box after the request itself — it is what the user is actually agreeing to.
+*/
+.dlg__await-note {
+  margin-top: 5px !important;
+  color: var(--ep-parchment) !important;
+  font-size: 11.5px !important;
+}
+
+.dlg__await-acts {
+  margin-top: 9px;
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/*
+ * Chronicle entries that are not speech: what you allowed, and what now exists.
+ *
+ * Drawn as marks rather than as lines of dialogue, because rendering them as speech would put
+ * words in somebody's mouth. Same record, different shape (ADR-0025 — the Chronicle is not a
+ * conversation).
+ */
+.dlg__mark {
+  margin: 0 0 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 8px;
+  font: 400 12px var(--ep-body);
+  color: var(--ep-gold);
+  background: rgba(216, 178, 90, 0.07);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold-dim);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+/* Evidence reads slightly louder than permission: it is the thing History is made of. */
+.dlg__mark--produced { color: var(--ep-parchment) }
+.dlg__mark--compacted { color: var(--ep-frame-hi) }
+.dlg__mark--compacted b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ep-energy);
+  font: 400 9px var(--ep-display);
+  letter-spacing: 0.12em;
+}
+.dlg__mark--compacting {
+  color: var(--ep-energy);
+  background: rgba(101, 231, 161, 0.07);
+  box-shadow: inset 0 0 0 var(--px) rgba(101, 231, 161, 0.4);
+}
+
+/* --------------------------------------------------------------------- mode */
+
+/*
+ * How much the crew may do on its own. At the bottom of the conversation because that is where
+ * the decision is made — not in a settings screen you would have to leave the World to reach.
+ *
+ * One control rather than a button per mode: a row of buttons grows every time a mode is added
+ * and spends the width of the box on a choice made once a session.
+ */
+.dlg__mode {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dlg__mode-label {
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.14em;
+  color: var(--ep-frame-lo);
+}
+
+.dlg__mode-pick {
+  flex: none;
+  padding: 6px 8px;
+  border: 0;
+  cursor: pointer;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.05em;
+  color: var(--ep-parchment);
+  background-color: var(--ep-window);
+  box-shadow:
+    0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 var(--px) var(--ep-frame-hi),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-outline);
+}
+
+.dlg__mode-pick:focus { outline: 0 }
+
+.dlg__mode-note {
+  flex: 1;
+  min-width: 160px;
+  font: 400 11px var(--ep-body);
+  color: var(--ep-frame-lo);
+}
+
+/* The change itself, shown before it is made. Monospaced because it is code. */
+.dlg__diff {
+  margin: 7px 0 0;
+  padding: 7px 9px;
+  max-height: 180px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  font: 400 11px/1.5 var(--lx-mono, monospace);
+  white-space: pre;
+  color: var(--ep-frame-hi);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-outline);
+  user-select: text;
+}
+
+/* Put the last change back. Only shown when there is something to put back. */
+/* Whose change it is, said quietly before what it was. */
+.dlg__undo i {
+  font-style: normal;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ep-frame-lo);
+}
+
+.dlg__undo {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  background: rgba(70, 183, 255, 0.06);
+  box-shadow: inset 0 0 0 var(--px) rgba(70, 183, 255, 0.35);
+}
+
+/*
+  Its own ✕, in the row.
+
+  `.dlg__dismiss` is `position: absolute`, written for the notices that own a positioned box. This
+  bar is not one, so the button was placed against whatever ancestor happened to be positioned and
+  landed off in the Chronicle's title bar — present in the markup, unreachable on the screen.
+  Here it is simply the last thing in the row.
+*/
+.dlg__undo .dlg__dismiss {
+  position: static;
+  flex: none;
+  opacity: 0.7;
+}
+
+.dlg__undo span {
+  flex: 1;
+  min-width: 0;
+  font: 400 11.5px var(--ep-body);
+  color: var(--ep-frame-hi);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- standing */
+
+/*
+ * Decisions the user made once and would otherwise never see again. Collapsed, because the
+ * ordinary state is not to think about them — and present, because "always allow" is the
+ * decision most worth being able to change your mind about.
+ */
+.dlg__standing {
+  margin-top: 10px;
+  font: 400 11.5px var(--ep-body);
+  color: var(--ep-frame-hi);
+}
+
+.dlg__standing > summary {
+  cursor: pointer;
+  list-style: none;
+  font: 400 8px var(--ep-display);
+  letter-spacing: 0.14em;
+  color: var(--ep-frame-lo);
+  user-select: none;
+}
+
+.dlg__standing > summary::-webkit-details-marker { display: none }
+.dlg__standing > summary::before { content: "▸ "; color: var(--ep-gold) }
+.dlg__standing[open] > summary::before { content: "▾ " }
+.dlg__standing > summary:hover { color: var(--ep-parchment) }
+
+.dlg__standing ul {
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.dlg__standing li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-outline);
+}
+
+.dlg__standing li span { flex: 1; min-width: 0; overflow-wrap: anywhere }
+.dlg__standing li .epbtn { padding: 4px 7px }
+
+/* A "never" reads differently from a "may": one is a guard, the other is a shortcut. */
+.dlg__standing--deny { color: #ffd0a0 }
+
+/*
+ * What a character was told this turn (ADR-0012). Shown only when something was left out — a
+ * budget nobody is near is a number that trains people to stop reading the instruments.
+ */
+/*
+ * SOURCES — folded, because most answers do not need checking and every one of them would pay
+ * for the ones that do. Open, it is a list you can read an address out of, not a set of links:
+ * the World has no browser, and a click that quietly did nothing would be worse than text.
+ */
+.dlg__sources {
+  margin: 8px 0 0;
+  font: 400 10.5px var(--ep-body);
+  color: var(--ep-frame-lo);
+}
+
+.dlg__sources > summary {
+  cursor: pointer;
+  color: var(--ep-gold-dim);
+  user-select: none;
+}
+
+.dlg__sources > summary:hover { color: var(--ep-gold) }
+
+.dlg__sources ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+/* The whole row is the target. A link you have to hit exactly is a link you miss. */
+.dlg__source {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.dlg__source:hover .dlg__source-title { color: var(--ep-gold) }
+.dlg__source:hover .dlg__source-url { opacity: 1 }
+
+.dlg__source-title {
+  display: block;
+  color: var(--ep-parchment);
+}
+
+.dlg__source-url {
+  display: block;
+  font-family: var(--ep-mono);
+  font-size: 9.5px;
+  word-break: break-all;
+  opacity: 0.75;
+}
+
+.dlg__knew {
+  margin: 8px 0 0;
+  font: 400 10.5px var(--ep-body);
+  color: var(--ep-frame-lo);
+}
+
+/*
+ * The World saying it is mute. Not an error — a World with no project folder is a valid World,
+ * it simply has nothing for the crew to work on, and saying so beats a character truthfully
+ * answering "I cannot do that" forever.
+ */
+.dlg__mute {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  font: 400 11.5px/1.5 var(--ep-body);
+  color: var(--ep-gold);
+  background: rgba(216, 178, 90, 0.08);
+  box-shadow: inset 0 0 0 var(--px) var(--ep-gold-dim);
+}
+
+/* An ending notice, with room for the button that puts it away. */
+.dlg__ending {
+  position: relative;
+  padding-right: 26px;
+}
+
+.dlg__dismiss {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: 400 12px var(--ep-mono, monospace);
+  color: inherit;
+  opacity: 0.55;
+}
+
+.dlg__dismiss:hover { opacity: 1 }
+
+/* The Context Report, asked for rather than always on show.
+   `position: relative` so the popup can be anchored to the composer instead of the window —
+   a fixed panel would sit in the same place whatever size the Chronicle happens to be. */
+.dlg__ask {
+  position: relative;
+}
+
+/* Two controls, stacked, so CONTEXT sits directly above the button it describes. */
+.dlg__ctrl {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.dlg__ctxbtn {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  border: 0;
+  cursor: pointer;
+  font: 400 9px var(--ep-mono, monospace);
+  letter-spacing: 1px;
+  color: rgba(214, 226, 255, 0.55);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.dlg__ctxbtn:hover { color: rgba(214, 226, 255, 0.9) }
+.dlg__ctxbtn b { font-weight: 500 }
+
+/* The one thing worth seeing without opening anything: this turn lost part of the story. */
+.dlg__ctxbtn--over { color: var(--ep-warn, #e8b74a) }
+
+/* Nothing measured yet. The frame stays, the light is off. */
+.dlg__ctxbtn--cold { color: rgba(214, 226, 255, 0.28) }
+
+.dlg__ctxpop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 3;
+  width: min(360px, 100%);
+  padding: 10px 12px;
+  background: var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-frame-lo),
+    0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+/*
+  The reasoning dial, wearing the context popover's clothes.
+
+  Same object, one step to the left of it: both are dials over a turn, and giving the second one
+  its own look would make two controls that do the same kind of job read as unrelated.
+*/
+.dlg__effpop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 3;
+  width: min(360px, 100%);
+  padding: 10px 12px;
+  background: var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    inset 0 0 0 calc(var(--px) * 2) var(--ep-frame-lo),
+    0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+/*
+  A range input, styled rather than replaced.
+
+  The native one already carries keyboard, drag, and the screen reader's understanding of "an
+  amount along an axis". A div rebuilt to look like this would have to earn all of that back,
+  and would earn most of it badly.
+*/
+.dlg__effslide {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dlg__effslide::-webkit-slider-runnable-track {
+  height: var(--px, 2px);
+  background: linear-gradient(
+    90deg,
+    rgba(232, 183, 74, 0.75),
+    rgba(214, 226, 255, 0.28)
+  );
+}
+
+.dlg__effslide::-moz-range-track {
+  height: var(--px, 2px);
+  background: linear-gradient(
+    90deg,
+    rgba(232, 183, 74, 0.75),
+    rgba(214, 226, 255, 0.28)
+  );
+}
+
+/* Square, because everything in this World is. A round handle would be the one curve on screen. */
+.dlg__effslide::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ep-gold, #e8b74a);
+  box-shadow: 0 0 0 var(--px) rgba(10, 12, 28, 0.9);
+}
+
+.dlg__effslide::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ep-gold, #e8b74a);
+  box-shadow: 0 0 0 var(--px) rgba(10, 12, 28, 0.9);
+}
+
+.dlg__effmarks {
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.dlg__effmarks i {
+  flex: 1 1 0;
+  text-align: center;
+  font-style: normal;
+  font: 400 9px var(--ep-mono, monospace);
+  letter-spacing: 0.5px;
+  color: rgba(214, 226, 255, 0.62);
+}
+
+/* Where they actually are. The only lit mark, because only one is true. */
+.dlg__effmarks i.on {
+  color: var(--ep-gold, #e8b74a);
+}
+
+.dlg__effnote {
+  margin: 8px 0 0;
+  font: 400 11px/1.5 var(--ep-sans, sans-serif);
+  color: rgba(214, 226, 255, 0.55);
+}
+
+.dlg__ctxhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font: 400 10px var(--ep-mono, monospace);
+  letter-spacing: 1px;
+  color: rgba(214, 226, 255, 0.55);
+}
+
+.dlg__ctxhead b {
+  flex: 1;
+  font-weight: 500;
+  text-align: right;
+  color: rgba(214, 226, 255, 0.85);
+}
+
+/* The bar itself: measured, never an estimate. */
+.dlg__ctxbar {
+  display: block;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+}
+
+.dlg__ctxbar i {
+  display: block;
+  height: 100%;
+  background: rgba(140, 190, 255, 0.65);
+}
+
+/* Full is a tight fit; full *and* something dropped is a turn that lost part of the story. */
+.dlg__ctxbar i.over { background: var(--ep-warn, #e8b74a) }
+
+
+/* The World's own right-click menu, replacing the browser's.
+   Fixed, above everything, and small — it is a correction to an immersion leak, not a feature
+   that wants attention. */
+.shellmenu {
+  position: fixed;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  min-width: 148px;
+  padding: 3px;
+  background: var(--ep-panel, #10142c);
+  box-shadow:
+    inset 0 0 0 var(--px, 2px) var(--ep-outline, #0a0c18),
+    inset 0 0 0 calc(var(--px, 2px) * 2) var(--ep-frame-lo, #2b3566),
+    0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+.shellmenu button {
+  padding: 6px 10px;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: 400 10px var(--ep-mono, monospace);
+  letter-spacing: 1px;
+  color: rgba(214, 226, 255, 0.7);
+  background: none;
+}
+
+.shellmenu button:hover {
+  color: var(--ep-gold, #e8c15a);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ------------------------------------------------------------- an agent waits */
+
+/*
+ * Over the World, and above the conversation.
+ *
+ * A held socket is more urgent than a sentence being typed: the agent is stopped until this is
+ * answered, and the deadline is running. It takes pointer events; the band around it does not,
+ * so the World underneath stays draggable while a question is up.
+ */
+.hud__agent-slot {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 48px));
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.hud__agent-slot .dlg__await {
+  margin: 0;
+  /*
+    Opaque, and it has to stay that way.
+
+    This overrode the base rule with the gold wash *alone*, which put the conversation straight
+    through the question — the one moment in the World where the user must be able to read exactly
+    what they are agreeing to. The wash goes on top of the panel, never instead of it.
+  */
+  background:
+    linear-gradient(rgba(216, 178, 90, 0.14), rgba(216, 178, 90, 0.14)),
+    var(--ep-panel);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-gold),
+    0 18px 40px -18px #000;
+}
+
+/* ------------------------------------------------------- the agent door, narrow */
+
+/*
+ * The sidebar is ~208 units wide and the user can drag it narrower. Everything here has to
+ * survive that: nothing may clip, and a Windows path — the longest string this panel will ever
+ * hold — has to wrap rather than run off the edge.
+ */
+.door--tight {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  min-width: 0;
+}
+
+.door--tight .epbtn {
+  width: 100%;
+}
+
+.door--tight .door__note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #9fb4d8;
+}
+
+.door--tight .door__on {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #6ee7a0;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.door--tight .door__lamp {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: #6ee7a0;
+  box-shadow: 0 0 6px #6ee7a0;
+}
+
+.door--tight .door__who {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  /*
+    `--ep-parchment`, not `--ep-ink`. In this stylesheet `--ep-ink` is the *dark background*
+    (#0a0c1c) — reached for as if it meant "the colour of ink", it painted every reading in this
+    panel black on black. A variable named for a substance rather than for a role is exactly the
+    kind that gets used backwards, and the fallback hid it: the value existed, so nothing warned.
+  */
+  color: var(--ep-parchment);
+  background: rgba(8, 12, 24, 0.7);
+  box-shadow: inset 0 0 0 var(--px) rgba(120, 150, 200, 0.35);
+}
+
+/*
+  A native `<select>` draws its list with the operating system's colours unless the options are
+  styled too. Styling only the box leaves a readable control whose menu is unreadable.
+*/
+.door--tight .door__who option {
+  color: var(--ep-parchment);
+  background: #101733;
+}
+
+.door--tight .door__done {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 8px;
+  min-width: 0;
+  background: rgba(110, 231, 160, 0.08);
+  box-shadow: inset 0 0 0 var(--px) rgba(110, 231, 160, 0.35);
+}
+
+/*
+ * A path is one long unbroken token, so `overflow-wrap` alone will not break it. `anywhere` is
+ * what makes it fold instead of deciding the panel is wider than it is.
+ */
+.door--tight code {
+  font-family: var(--ep-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #9fb4d8;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.door--tight .door__bad {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #ff9d9d;
+  overflow-wrap: anywhere;
+}
+
+.door--tight .door__manual summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: #9fb4d8;
+}
+
+.door--tight .door__manual > *:not(summary) {
+  margin-top: 6px;
+}
+
+.door--tight .door__config {
+  margin: 0;
+  padding: 7px 8px;
+  max-height: 160px;
+  overflow: auto;
+  font-family: var(--ep-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--ep-parchment);
+  background: rgba(8, 12, 24, 0.75);
+  box-shadow: inset 0 0 0 var(--px) rgba(120, 150, 200, 0.25);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* ---------------------------------------------------------------- terminals */
+
+/*
+ * Terminals the user opened, floating over the World.
+ *
+ * **Above everything.** A terminal is opened because somebody is about to do something in it;
+ * a window that can end up behind the conversation is a window they have to go and find, which
+ * is the friction this feature exists to remove.
+ *
+ * Pointer events on the panels only, the same rule the HUD follows: the gaps between windows are
+ * still the World, and the camera still works through them.
+ */
+.term__launch { position: relative }
+
+.term__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 210;
+  display: grid;
+  min-width: 280px;
+  background: var(--ep-window, #0b0912);
+  box-shadow:
+    inset 0 0 0 var(--px) var(--ep-outline),
+    0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.term__menu > button {
+  display: grid;
+  gap: 1px;
+  padding: 8px 11px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  box-shadow: inset 0 calc(var(--px) * -1) 0 rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.term__menu > button:hover { background: rgba(232, 183, 74, 0.14) }
+.term__menu > button > b { font: 600 11px var(--lx-mono); letter-spacing: 0.5px }
+/* The resolved program, because a terminal should not be a mystery box. */
+.term__menu > button > em {
+  font: 400 9px var(--lx-mono);
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.62);
+  overflow-wrap: anywhere;
+}
+
+.term__none { margin: 0; padding: 10px; font-size: 11px; color: rgba(239, 232, 218, 0.45) }
+
+.term__problem {
+  position: fixed;
+  left: 50%;
+  top: 64px;
+  transform: translateX(-50%);
+  z-index: 211;
+  margin: 0;
+  padding: 7px 12px;
+  font-size: 11px;
+  color: var(--ep-warn, #d08a30);
+  background: var(--ep-window, #0b0912);
+  box-shadow: inset 0 0 0 var(--px) currentColor;
+}
+
+/*
+ * A World window, drawn by the same nine-slice `Frame` every other window uses.
+ *
+ * It drew its own box first, and that box was the one window a World Pack could never re-skin —
+ * exactly the leak `Frame` exists to close (ADR-0016). Now one authored `ui.frame.window` restyles
+ * the terminal along with everything else.
+ */
+.term__win {
+  position: fixed;
+  /*
+   * Above the conversation. Each window raises itself further on a click.
+   *
+   * **And the number is only half of it.** The comment here used to say "which sits at 999",
+   * and the conversation does not: `.hud__dialogue-slot` is 2. Worse, this rule was being
+   * compared against it from inside `.frame__body` (`position: relative; z-index: 1`), which is
+   * a stacking context \u2014 so 1000 was 1000 within the HUD bar, and the bar lost. Measured with
+   * `elementFromPoint`: the conversation was on top.
+   *
+   * The windows are portalled to the document root now, which is what makes this number mean
+   * what it says. A z-index is a claim about siblings; a comment claiming a page-wide order is
+   * describing something the property cannot decide on its own.
+   */
+  z-index: 1000;
+  pointer-events: auto;
+  min-width: 380px;
+  min-height: 220px;
+}
+
+.term__win > .frame__body {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
+/* Minimised, and still running. Hidden rather than unmounted: tearing the emulator down would
+   lose whatever the shell printed while nobody was looking, and the process never stopped. */
+.term__win--away { display: none }
+
+.term__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  cursor: move;
+  user-select: none;
+  background: linear-gradient(180deg, rgba(232, 183, 74, 0.16), rgba(232, 183, 74, 0.04));
+  box-shadow: inset 0 calc(var(--px) * -1) 0 rgba(232, 183, 74, 0.3);
+}
+
+.term__title {
+  font: 600 10px var(--lx-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ep-gold, #e8b74a);
+}
+
+.term__buttons { display: flex; gap: 3px }
+
+.term__buttons > button {
+  width: 22px;
+  height: 18px;
+  font: 600 11px var(--lx-mono);
+  line-height: 1;
+  color: rgba(239, 232, 218, 0.8);
+  background: rgba(0, 0, 0, 0.35);
+  border: 0;
+  box-shadow: inset 0 0 0 var(--px) var(--ep-outline);
+  cursor: pointer;
+}
+
+.term__buttons > button:hover { background: rgba(255, 255, 255, 0.14) }
+/* The one that ends a process reads differently from the two that do not. */
+.term__x:hover { background: rgba(190, 70, 70, 0.6) !important; color: #fff }
+
+.term__screen {
+  overflow: hidden;
+  min-height: 0;
+  padding: 6px 4px 4px 8px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.term__screen .xterm { height: 100% }
+
+.term__grip {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    rgba(232, 183, 74, 0.5) 50%,
+    rgba(232, 183, 74, 0.5) 62%,
+    transparent 62%
+  );
+}
+
+/*
+ * Where a minimised terminal waits: on the World's own bottom bar, left of the layout switches,
+ * rather than floating over it. Still running, and one click from being back.
+ */
+.term__tray {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+
+/* Two ordinary bar buttons side by side. Nothing here restyles them. */
+.term__tab { display: flex; align-items: stretch; gap: 2px }
+
+/*
+ * A shell command a character proposed, with a way to reach a terminal.
+ *
+ * Under the command rather than over it, because the command is the thing to read first — the
+ * button is what you press *after* deciding, and it opens a terminal with this typed in rather
+ * than running it.
+ */
+.dlg__rich-run {
+  display: block;
+  margin-top: 8px;
+  padding: 4px 9px;
+  font: 600 9px var(--lx-mono);
+  letter-spacing: 1.5px;
+  color: var(--ep-gold, #e8b74a);
+  background: rgba(232, 183, 74, 0.1);
+  border: 0;
+  box-shadow: inset 0 0 0 var(--px) rgba(232, 183, 74, 0.5);
+  cursor: pointer;
+}
+
+.dlg__rich-run:hover { background: rgba(232, 183, 74, 0.22) }
+
+/* The tray, when there is no World bar to sit on — the Launcher, or a test. */
+.term__tray--loose {
+  position: fixed;
+  left: 10px;
+  bottom: 10px;
+  z-index: 209;
+}
+
+/* ==========================================================================
+   A Service that did not answer
+
+   Rendered as a question rather than a notice, because the assigned Brain is part of who
+   somebody is: Epoch names the machine and the user decides. Louder than `.dlg__failed` for the
+   same reason the character editor's refusal is louder than a notice — it is an answer to
+   something somebody just did, not ambient information.
+   ========================================================================== */
+
+.brainless {
+  margin: 8px 0;
+  padding: 11px 13px;
+  background: rgba(232, 183, 74, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.55);
+  display: grid;
+  gap: 9px;
+}
+
+.brainless__said {
+  margin: 0;
+  font: 400 12.5px/1.6 var(--lx-sans, sans-serif);
+  color: #ffd489;
+}
+
+.brainless__said b {
+  display: block;
+  font: 500 9px var(--lx-mono, monospace);
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+  color: var(--lx-gold, #e8b74a);
+}
+
+.brainless__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.brainless__note {
+  margin: 0;
+  font: 400 11px/1.55 var(--lx-sans, sans-serif);
+  color: rgba(239, 232, 218, 0.62);
+}
+
+.brainless__list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* A machine with twenty models must not push the buttons off the bottom of the box. */
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.brainless__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+
+.brainless__list em {
+  font: 400 10px var(--lx-mono, monospace);
+  font-style: normal;
+  color: rgba(239, 232, 218, 0.62);
+  overflow-wrap: anywhere;
+}
+
+/*
+  The Studio Panel, inside the Chronicle.
+
+  Scrolls with the conversation rather than floating over the World: what it makes is evidence on
+  the Quest, and a floating window would put the picture somewhere other than where it was asked
+  for.
+*/
+.dlg__studioBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  font: 400 11px var(--lx-mono);
+  color: var(--lx-ink-quiet);
+}
+
+/*
+ * A LoRA's strength: a bar with both ends written on it.
+ *
+ * The range input was unstyled, so it drew the platform's own blue slider inside a pixel-art
+ * window — an immersion leak, and an unreadable one: the owner read `1.50` as *none of it*.
+ * A control whose ends are not written down is a control you have to guess at.
+ */
+.studio__strength {
+  /*
+   * **Its own line under the row, because the row is a four-column grid.**
+   *
+   * A fifth child wrapped into column one, which is the 8px status dot — so the bar and its
+   * legend were squeezed into a sliver and the legend broke into four lines. Spanning from the
+   * name's column to the end puts it under the file it belongs to and gives it the width it
+   * needs.
+   */
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.studio__slider {
+  flex: 1;
+  min-width: 120px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  background: var(--ep-sunk, rgba(0, 0, 0, 0.4));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.studio__slider::-webkit-slider-runnable-track {
+  height: 14px;
+  background: transparent;
+}
+
+/* Square, because everything else in this World is. A round thumb is the one part of a native
+   control that survives every other override. */
+.studio__slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 14px;
+  border-radius: 0;
+  background: var(--ep-gold, #e8b74a);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+.studio__slider:focus-visible {
+  outline: 1px solid var(--ep-gold, #e8b74a);
+}
+
+.studio__strengthValue {
+  min-width: 34px;
+  text-align: right;
+  font: 700 11px var(--ep-mono, monospace);
+  color: var(--ep-gold, #e8b74a);
+}
+
+.studio__strengthEnds {
+  /* On the same line when there is room; under the bar when there is not. */
+  flex: 1 1 180px;
+  font: 400 9px var(--ep-body, sans-serif);
+  font-style: normal;
+  color: var(--ep-frame-lo, rgba(255, 255, 255, 0.4));
+}
+
+/*
+ * The picture panel is a window in the Chronicle.
+ *
+ * It used to be a translucent slab with one hairline, pinned above the composer — correct
+ * placement (what it makes is evidence, so it belongs where it was asked for) and the wrong
+ * object: it read as the conversation having grown a form. It is a `Frame` now, so it carries
+ * the same bevel as every other window and a World Pack re-skins it with the rest.
+ *
+ * Bounded and centred, because a form stretched across a 2560px conversation has its label at
+ * one end of the screen and its field at the other.
+ */
+.dlg__studio {
+  /* Centred in the conversation and bounded: a form stretched across a 2560px window has its
+     label at one end of the screen and its field at the other. */
+  margin: 10px auto 4px;
+  width: min(720px, 100%);
+  display: flex;
+}
+
+.dlg__studio > .frame__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 12px;
+}
+
+/* Its own bounded scroll, so a long panel never pushes the composer off the bottom — the same
+   rule the World's rails follow, and the scrollbar is drawn as nothing for the same reason. */
+.dlg__studioBody {
+  min-width: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/*
+ * What a LoRA's author says a prompt needs, on the row that is using it.
+ *
+ * Its own line under the row rather than a fifth cell in a four-column grid, and in the tone of
+ * a hint you must read to *use* the control — not the one you read afterwards. It was the second
+ * kind, and the owner drew a picture without the trained word in it.
+ */
+.rdy__trigger {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font: 400 11px var(--lx-mono, monospace);
+  color: var(--ep-parchment, #efe8da);
+  margin-top: 4px;
+}
+
+/* The picture a render will be drawn on top of, shown at the moment it is in play.
+
+   A hand-over that failed left the row reading REPLACE THAT PICTURE with nothing behind it, and
+   the only sign was the size of the result — 1024×1024 where the photo is 1280×960. Small
+   deliberately: it is a confirmation, not a preview, and the panel is already tall. */
+.studio__base {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  flex: none;
+  image-rendering: auto;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 0 2px var(--ep-gold, #e8b74a);
+}
+
+/* Which runtime a curve is mapped on, and how much of the curve that one can be told.
+
+   Wide enough for the whole label: the point of this control is that `Ollama · context only` and
+   `llama.cpp · context and cache` differ, and `Ollama · conte…` says neither. A truncated
+   qualifier is the gauge that identifies nobody, wearing an ellipsis. */
+.mdls__on {
+  min-width: 210px;
+  max-width: 100%;
+}
+
+/* PREPARE — what this machine has, and what it could have.
+
+   The step list is the whole screen: a mark, a name, and what the row is a reading of. It borrows
+   the deck's own frame rather than inventing a wizard's, because it is a place in Epoch and not a
+   dialog in front of it. */
+.fr__lede {
+  max-width: 62ch;
+  margin: 0 0 14px;
+  color: var(--ep-dim, #9aa7b4);
+  line-height: 1.5;
+}
+
+.fr__list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+.fr__row {
+  display: grid;
+  grid-template-columns: 18px minmax(140px, max-content) 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fr__mark {
+  text-align: center;
+  color: var(--ep-dim, #9aa7b4);
+}
+
+/* Found, running, failed. Three states and three colours; a row that merely exists stays dim,
+   which is what makes the ones that moved readable at a glance. */
+.fr__row--here .fr__mark,
+.fr__row--done .fr__mark {
+  color: var(--ep-good, #7fd08a);
+}
+
+.fr__row--failed .fr__mark {
+  color: var(--ep-warn, #e2725b);
+}
+
+.fr__row--running {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.fr__name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fr__what {
+  color: var(--ep-dim, #9aa7b4);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.fr__bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.fr__count {
+  color: var(--ep-dim, #9aa7b4);
+  font-size: 12px;
+}
+
+/* Square, and it fills rather than slides: this counts steps that finished, so every movement
+   is a step somebody could name. */
+.fr__track {
+  height: 6px;
+  margin-bottom: 14px;
+  background: var(--ep-sunk, rgba(0, 0, 0, 0.4));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.fr__fill {
+  height: 100%;
+  background: var(--ep-gold, #e8b74a);
+  transition: width 240ms linear;
+}
+
+.fr__go {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fr__said {
+  margin: 8px 0;
+  color: var(--ep-dim, #9aa7b4);
+}
+
+/* Every line the package manager wrote. Monospace because it is somebody else's output and
+   dressing it in the World's face would be Epoch claiming to have said it. */
+.fr__log {
+  margin-top: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ep-dim, #9aa7b4);
+  background: var(--ep-sunk, rgba(0, 0, 0, 0.4));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/*
+  Epoch's own microphone question, in the World.
+
+  It sits **in** the composer rather than over it: a thing the World is asking belongs where the
+  answer is going, and a slab floating above the conversation is the shape the picture panel was
+  already corrected out of.
+*/
+.dlg__asking-frame {
+  margin: 8px 0;
+  padding: 10px 12px 12px;
+}
+
+.dlg__asking {
+  margin: 8px 0 0;
+  font: 400 11px/1.55 var(--lx-mono);
+  color: rgba(239, 232, 218, 0.72);
+}
+
+.dlg__asking b {
+  color: var(--lx-gold, #d8b25a);
+}
+
+.dlg__asking-acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/*
+  A control that is live, rather than merely on.
+
+  Gold means *this is doing something right now* — the same meaning KEEP was corrected to carry
+  when holding a model became the default and every button in the World went gold. A microphone
+  that is open is exactly the state somebody must be able to see from across the room.
+*/
+.dlg__attach--live {
+  border-color: var(--lx-gold, #d8b25a);
+  color: var(--lx-gold, #d8b25a);
+}

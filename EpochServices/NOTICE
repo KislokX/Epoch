@@ -1,0 +1,20 @@
+EpochServices
+Copyright 2026 Jose Umaña
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+---------------------------------------------------------------------------
+Third-party content
+---------------------------------------------------------------------------
+
+Rust dependencies are listed in Cargo.lock. Four crates come from Epoch itself
+- epoch-kernel, epoch-models, epoch-assets and epoch-secrets - and are the same
+code under the same licence.
+
+EpochServices bundles no models and no runtimes. It finds what is already on the
+machine and offers to fetch the rest from its own publisher, exactly as Epoch
+does.

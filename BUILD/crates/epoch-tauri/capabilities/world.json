@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "world",
+  "description": "What the World window is allowed to do. Least privilege: the presentation layer may listen for engine events and nothing more. Custom engine commands are exposed explicitly in main.rs and do not pass through this ACL.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-set-title",
+    "core:window:allow-close"
+  ]
+}

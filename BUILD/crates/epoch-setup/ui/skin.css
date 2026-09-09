@@ -1,0 +1,327 @@
+/*
+  Epoch's own face, for the one window that opens before Epoch exists.
+
+  **The palette is copied rather than imported, and that is deliberate.** This page has no bundler
+  and runs on a machine where the application is not installed yet, so it cannot reach
+  `launcher.css`. The values are that file's, named the same way, so the two can be compared by
+  eye — and the day the World's palette changes, this is one file to change with it.
+
+  **A setup that looked like a generic wizard would be the first thing somebody saw** of a product
+  whose whole argument is that it is a place rather than an application.
+*/
+
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("fonts/press-start-2p-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+
+:root {
+  --lx-void: #07060c;
+  --lx-panel-a: #171320;
+  --lx-panel-b: #100d17;
+  --lx-sunk: rgba(6, 5, 11, 0.6);
+  --lx-inset: #05040a;
+  --lx-edge: #322a44;
+  --lx-gold: #e8b74a;
+  --lx-gold-lit: #ffd77a;
+  --lx-parchment: #f4e6c4;
+  --lx-ink: #efe8da;
+  --lx-ink-quiet: rgba(239, 232, 218, 0.45);
+  --lx-violet: #c79bf5;
+  --lx-green: #5fd6a4;
+  --lx-red: #e2725b;
+  --lx-pixel: "Press Start 2P", monospace;
+  --lx-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Nothing here is worth selecting, and a selection painted across a panel is the immersion leak
+   this codebase keeps taking out. The log is the exception — somebody will want to copy it. */
+body {
+  margin: 0;
+  padding: 22px;
+  min-height: 100vh;
+  font: 400 12px/1.6 var(--lx-mono);
+  color: var(--lx-ink);
+  background:
+    radial-gradient(1200px 500px at 50% -10%, #1a1430 0%, transparent 60%),
+    var(--lx-void);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* One panel, framed the way every panel in Epoch is framed. */
+main {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 44px);
+  padding: 18px 20px;
+  background: linear-gradient(180deg, var(--lx-panel-a), var(--lx-panel-b));
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 26px rgba(0, 0, 0, 0.55);
+}
+
+h1 {
+  margin: 0;
+  font: 400 20px var(--lx-pixel);
+  color: var(--lx-gold);
+  text-shadow: 0 2px 0 #000;
+  letter-spacing: 1px;
+}
+
+.sub {
+  margin: 8px 0 0;
+  font: 400 8px var(--lx-pixel);
+  color: var(--lx-violet);
+  letter-spacing: 2px;
+}
+
+.lede {
+  max-width: 76ch;
+  margin: 14px 0 0;
+  color: var(--lx-ink-quiet);
+}
+
+.rule {
+  height: 1px;
+  margin: 14px 0 4px;
+  background: linear-gradient(90deg, transparent, rgba(232, 183, 74, 0.35), transparent);
+}
+
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 12px;
+  font: 400 8px var(--lx-pixel);
+  color: var(--lx-gold);
+  letter-spacing: 1px;
+}
+
+.count {
+  color: var(--lx-ink-quiet);
+}
+
+/* Square and sunk, and it fills rather than slides: it counts steps that finished, so every
+   movement is a step somebody could name. */
+.track {
+  height: 8px;
+  margin-top: 7px;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(180deg, var(--lx-gold-lit), var(--lx-gold));
+  transition: width 240ms linear;
+}
+
+ul {
+  flex: 1;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+li {
+  display: grid;
+  grid-template-columns: 20px minmax(130px, max-content) 1fr max-content;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+li.running {
+  background: rgba(232, 183, 74, 0.07);
+}
+
+.mark {
+  text-align: center;
+  color: var(--lx-ink-quiet);
+}
+
+li.here .mark,
+li.done .mark {
+  color: var(--lx-green);
+}
+
+li.failed .mark {
+  color: var(--lx-red);
+}
+
+.name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font: 400 8px var(--lx-pixel);
+  color: var(--lx-parchment);
+  letter-spacing: 0.5px;
+}
+
+/* Something already here is a reading rather than a choice, and reads quieter for it. */
+li.here .name,
+li.done .name {
+  color: var(--lx-ink-quiet);
+}
+
+.what,
+.took {
+  color: var(--lx-ink-quiet);
+  overflow-wrap: anywhere;
+}
+
+.took {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+  What a box will cost to download.
+
+  Beside the name rather than in the sentence, because it is the thing being compared across
+  rows and a number buried in prose is one somebody has to hunt for. Quiet, upright, and in
+  tabular figures so 8.4 and 867 line up rather than wander.
+*/
+.cost {
+  margin-left: 7px;
+  font-style: normal;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--lx-ink-faint, rgba(239, 232, 218, 0.5));
+}
+
+/* The platform's own checkbox in a pixel-art window is the widget this codebase keeps taking
+   out. Drawn instead — and it is still a real input underneath, so it is still a checkbox to
+   anything that reads the page. */
+input[type="checkbox"] {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(232, 183, 74, 0.45);
+  cursor: pointer;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--lx-gold);
+  box-shadow: inset 0 0 0 1px var(--lx-gold-lit);
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+button {
+  padding: 10px 13px;
+  border: 0;
+  cursor: pointer;
+  color: var(--lx-parchment);
+  font: 400 10px var(--lx-pixel);
+  letter-spacing: 0.5px;
+  background: linear-gradient(180deg, #221b31, #15111f);
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px rgba(232, 183, 74, 0.3);
+  transition: box-shadow 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 2px var(--lx-inset),
+    0 0 0 3px var(--lx-gold);
+}
+
+button.quiet {
+  font-size: 8px;
+  color: var(--lx-ink-quiet);
+  background: transparent;
+  box-shadow: none;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* Somebody else's output, in a monospace that is not the World's pixel face — because Epoch did
+   not say it, and dressing it in the World's voice would be claiming that it did. */
+pre {
+  margin: 12px 0 0;
+  max-height: 190px;
+  overflow: auto;
+  padding: 9px 11px;
+  font: 400 11px/1.55 var(--lx-mono);
+  color: var(--lx-ink-quiet);
+  background: var(--lx-sunk);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.warn {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  color: var(--lx-red);
+  background: rgba(226, 114, 91, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(226, 114, 91, 0.3);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/*
+  No scrollbar here either (owner, 2026-09-07).
+
+  Setup is drawn in the same pixel face as the World and is the first thing anybody sees of
+  Epoch; the platform's grey bar down the side of it is the widget this codebase keeps taking
+  out. The wheel, the trackpad and the keys are untouched — what goes is the drawn control, and
+  a row clipped at the edge of the list is what says it continues.
+
+  Everything, rather than the one list: this window has three scrolling boxes and they are all
+  the same decision.
+*/
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "window",
+  "description": "One window that shows a page this program serves on loopback. It grants nothing: EpochServices has no frontend script and needs no Tauri API, so the page can neither read a file nor reach the network on its own.",
+  "windows": ["main"],
+  "permissions": []
+}

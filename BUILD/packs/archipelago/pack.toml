@@ -1,0 +1,190 @@
+# The Archipelago - a second World.
+#
+# It exists to prove one claim: the Engine cannot tell two Worlds apart. Same five concepts,
+# same archetypes, same renderer - a completely different place.
+#
+# Deliberately SMALLER than the default World, and deliberately incomplete: it declares three
+# Places, not five. The two it omits fall through to a visible placeholder, which is what
+# ADR-0016's chain promises and what nothing has ever exercised with real content.
+#
+# No assets at all. Shapes only, so a World can be authored in a text editor with nothing else.
+
+[pack]
+id = "archipelago"
+name = "The Archipelago"
+version = "0.1.0"
+kind = "SHAPES ONLY - NO ASSETS"
+description = "Scattered islands and three buildings, drawn entirely from authored shapes. It exists to prove two things at once: that a World can be written in a text editor with no artwork at all, and that an unfinished World still opens instead of refusing."
+
+# No artwork in this repository. A World with no artwork is complete rather than
+# unfinished: the Engine draws its own windows, and a place with no sprite is drawn from
+# its authored shapes. Import your own with ADD ART on the bridge.
+[license]
+type = "CC0-1.0"
+holder = "Epoch"
+notes = "Original placeholder content authored for Epoch. Contains no third-party assets."
+
+# No characters here either (ADR-0023). This World is a coastline and five buildings; who
+# lives on it is the user's to decide, and they say so from their own side.
+
+# ---------------------------------------------------------------------------
+# PLACES
+#
+# Only three. The Automation Hub and the Guild are deliberately absent: this World has not
+# authored them yet, and the World must still open. A gap has to be visible, never silent.
+
+# The harbour, where everything arrives and departs.
+[places.command_center]
+concept = "command_center"
+title = "The Harbour"
+subtitle = "Where every crossing begins"
+at = { x = 900.0, y = 780.0 }
+footprint = 150.0
+
+[[places.command_center.marks]]
+key = "shadow"
+role = "shadow"
+renderer = "shape"
+shape = [ { form = "ellipse", tone = "shadow", x = 0.0, y = 0.0, w = 0.62, h = 0.17 } ]
+
+[[places.command_center.marks]]
+key = "body"
+role = "visual"
+renderer = "shape"
+shape = [
+  { form = "rect", tone = "wall", x = -0.5, y = -0.6, w = 1.0, h = 0.6 },
+  { form = "polygon", tone = "roof", points = [[-0.56, -0.6], [0.0, -0.95], [0.56, -0.6]] },
+  { form = "rect", tone = "detail", x = -0.14, y = -0.4, w = 0.28, h = 0.4 },
+]
+
+[[places.command_center.anchors]]
+role = "spawn"
+x = 0.7
+y = 0.0
+
+[[places.command_center.anchors]]
+role = "label"
+x = 0.0
+y = 0.42
+
+# The lighthouse, across the water. Isolation again, expressed differently.
+[places.knowledge_center]
+concept = "knowledge_center"
+title = "The Lighthouse"
+subtitle = "Where the charts are kept"
+at = { x = 1750.0, y = 430.0 }
+footprint = 110.0
+
+[[places.knowledge_center.marks]]
+key = "shadow"
+role = "shadow"
+renderer = "shape"
+shape = [ { form = "ellipse", tone = "shadow", x = 0.0, y = 0.0, w = 0.5, h = 0.15 } ]
+
+[[places.knowledge_center.marks]]
+key = "body"
+role = "visual"
+renderer = "shape"
+shape = [
+  { form = "polygon", tone = "wall", points = [[-0.3, 0.0], [-0.18, -1.6], [0.18, -1.6], [0.3, 0.0]] },
+  { form = "rect", tone = "accent", x = -0.22, y = -1.9, w = 0.44, h = 0.3 },
+  { form = "dome", tone = "roof", x = 0.0, y = -1.9, r = 0.24 },
+]
+
+[[places.knowledge_center.anchors]]
+role = "spawn"
+x = 0.6
+y = 0.0
+
+[[places.knowledge_center.anchors]]
+role = "label"
+x = 0.0
+y = 0.42
+
+# The workshop on the sandbar.
+[places.research_lab]
+concept = "research_lab"
+title = "The Boatyard"
+subtitle = "Where hulls are tried"
+at = { x = 480.0, y = 1180.0 }
+footprint = 125.0
+
+[[places.research_lab.marks]]
+key = "shadow"
+role = "shadow"
+renderer = "shape"
+shape = [ { form = "ellipse", tone = "shadow", x = 0.0, y = 0.0, w = 0.62, h = 0.17 } ]
+
+[[places.research_lab.marks]]
+key = "body"
+role = "visual"
+renderer = "shape"
+shape = [
+  { form = "rect", tone = "wall", x = -0.5, y = -0.55, w = 1.0, h = 0.55 },
+  { form = "polygon", tone = "roof", points = [[-0.6, -0.55], [-0.3, -0.9], [0.6, -0.9], [0.6, -0.55]] },
+  { form = "rect", tone = "detail", x = 0.1, y = -0.42, w = 0.26, h = 0.42 },
+]
+
+[[places.research_lab.anchors]]
+role = "spawn"
+x = 0.66
+y = 0.0
+
+[[places.research_lab.anchors]]
+role = "label"
+x = 0.0
+y = 0.42
+
+# ---------------------------------------------------------------------------
+# GEOGRAPHY
+#
+# Smaller than the default World on purpose: a World has no canonical size, and the camera
+# derives its widest zoom from the extent rather than from a constant. This is the first
+# thing that proves it.
+
+[map.size]
+width = 2200.0
+height = 1500.0
+
+[[map.terrain]]
+kind = "water"
+points = [
+  { x = 0.0, y = 0.0 }, { x = 2200.0, y = 0.0 },
+  { x = 2200.0, y = 1500.0 }, { x = 0.0, y = 1500.0 },
+]
+
+# The main island.
+[[map.terrain]]
+kind = "grass"
+points = [
+  { x = 520.0, y = 480.0 }, { x = 1180.0, y = 430.0 }, { x = 1340.0, y = 720.0 },
+  { x = 1180.0, y = 1010.0 }, { x = 700.0, y = 1060.0 }, { x = 430.0, y = 800.0 },
+]
+
+[[map.terrain]]
+kind = "sand"
+points = [
+  { x = 430.0, y = 800.0 }, { x = 700.0, y = 1060.0 }, { x = 640.0, y = 1290.0 },
+  { x = 330.0, y = 1320.0 }, { x = 260.0, y = 1050.0 },
+]
+
+# The far rock the Lighthouse stands on.
+[[map.terrain]]
+kind = "stone"
+points = [
+  { x = 1620.0, y = 330.0 }, { x = 1880.0, y = 340.0 }, { x = 1930.0, y = 540.0 },
+  { x = 1700.0, y = 590.0 },
+]
+
+[[map.routes]]
+from = "command_center"
+to = "research_lab"
+prominence = "major"
+waypoints = [ { x = 700.0, y = 960.0 } ]
+
+# The crossing. There is no road on water - the faint line is the route boats take.
+[[map.routes]]
+from = "command_center"
+to = "knowledge_center"
+prominence = "minor"
+waypoints = [ { x = 1300.0, y = 640.0 }, { x = 1560.0, y = 480.0 } ]

@@ -1,0 +1,1 @@
+{"setup":{"identifier":"setup","description":"What the setup window is allowed to do. It listens for the steps this program emits and nothing more; every command it calls is declared in main.rs and does not pass through this ACL.","local":true,"windows":["main"],"permissions":["core:event:allow-listen","core:event:allow-unlisten"]}}

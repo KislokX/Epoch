@@ -1,0 +1,189 @@
+# Building the installer somewhere a person can check.
+#
+# ## Why this exists at all, when the installer already builds locally
+#
+# It does, and a file built on somebody's desktop is a file whose only evidence is that they say
+# so. Epoch is not signed — a code-signing certificate is a recurring cost, and buying one to
+# remove a warning is not where this project's money goes — so what replaces a signature has to
+# be something a stranger can verify without trusting the author:
+#
+# | | what it proves |
+# |---|---|
+# | `SHA256SUMS` | the file you have is the file this job produced |
+# | build provenance | *this* file came from *this* commit of *this* repository, on GitHub's runners |
+#
+# The second is the one worth having. GitHub signs an attestation through Sigstore, and
+# `gh attestation verify Epoch_Setup.exe --repo <owner>/<repo>` checks it against a transparency
+# log — so a tampered installer cannot claim to have come from here, whatever it is called and
+# wherever it was downloaded.
+#
+# **Neither of them stops SmartScreen.** Nothing but reputation or an EV certificate does, and
+# saying otherwise would be the kind of claim this repository exists to avoid. What they do is
+# make *"is this the real one?"* an answerable question, which is the half that was missing.
+#
+# ## On demand and on a tag
+#
+# This compiles a Rust workspace and a frontend from cold. Running it because somebody fixed a
+# comment would be minutes of somebody else's electricity for nothing.
+
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  # **Nothing is published until the gates pass on this exact commit.**
+  #
+  # The audit put it plainly: provenance accredits where an artefact comes from, not that it
+  # survived QA. Before this, a tag could produce a signed installer while MSRV, the tests, the
+  # lints and the dependency policy were all failing — and the attestation would be perfectly
+  # valid about a build nobody had checked.
+  #
+  # This is the whole of `ci.yml`, not a copy of its steps. A second list of gates is a list that
+  # drifts, and the one that drifts is always the one nobody runs.
+  gates:
+    uses: ./.github/workflows/ci.yml
+
+  windows:
+    needs: gates
+    runs-on: windows-latest
+
+    permissions:
+      contents: read
+      # What the attestation needs, and the reason these are here rather than at the top: a job
+      # that only builds should not be able to write, and this one signs a statement about what
+      # it built.
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: BUILD
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BUILD/ui/package-lock.json
+
+      - name: Install
+        working-directory: BUILD/ui
+        run: npm ci
+
+      # `tauri build` runs the frontend's own build first (`beforeBuildCommand`), so this is the
+      # whole application: the bundle the installer carries and the engine behind it.
+      - name: The installer
+        working-directory: BUILD/ui
+        run: npm run world:build
+
+      # **The one file somebody downloads.**
+      #
+      # `epoch-setup` carries the app's own MSI inside it, so a person runs one program rather
+      # than a program and a list of instructions — which is the whole reason that crate exists,
+      # and it was never built here. The order is not optional: its `build.rs` embeds the MSI the
+      # step above produced, and a setup built first carries nothing and says so at runtime.
+      #
+      # Not bundled — `bundle.active` is false in its own config. This binary *is* the artefact.
+      - name: Setup, with Epoch inside it
+        working-directory: BUILD
+        run: cargo build --release -p epoch-setup
+
+      # **Printed into the log as well as written beside the files.** A list of checksums that
+      # travels with the thing it describes proves only that they arrived together; the copy in
+      # the log took a different path.
+      # **Two artefacts, and the MSI is deliberately not one of them.**
+      #
+      # It is still built — `epoch-setup` embeds it — and it is not offered as a download.
+      # `InstallScope="perMachine"`, into Program Files, while every other part of Epoch is per
+      # user: the program in `%LOCALAPPDATA%`, `SetShellVarContext current` in the uninstall
+      # hook, the vault under `%APPDATA%`. Its uninstall has no delete-app-data option and never
+      # runs that hook, so publishing it offered a second way in that nothing here has measured.
+      # One installation path, and it is the one the tests are about.
+      - name: What this job produced
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=BUILD/target/release/bundle
+          cp BUILD/target/release/epoch-setup.exe "$out/"
+          (cd "$out" && find . -type f -name '*.exe' -print0 |
+            xargs -0 -r sha256sum | tee SHA256SUMS)
+          cat "$out/SHA256SUMS"
+
+
+      # **What is inside the thing you just downloaded.**
+      #
+      # A checksum says the file is the one this job produced; provenance says the job ran here
+      # on this commit. Neither says what the binary *contains* — and that is the question
+      # somebody actually has to answer, months later, the day an advisory lands on a crate they
+      # have never heard of. 509 Rust components in the application and 294 in the other program:
+      # nobody reads that from a lockfile by hand, and reconstructing the tree of a version
+      # already distributed is work at the worst possible moment.
+      #
+      # Two producers because there are two ecosystems and each already knows its own: `npm sbom`
+      # ships with npm, and `cargo-cyclonedx` is pinned so a new release of it cannot silently
+      # change the shape of a published record. CycloneDX because `cargo deny` already speaks the
+      # same licence vocabulary this fills in.
+      #
+      # It is **attested with the installer**, not beside it: an unsigned parts list is a claim,
+      # and the one thing worth knowing about a parts list is that it came from the build it
+      # describes.
+      - name: Install the parts-list tool
+        run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+
+      - name: What is inside it
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=BUILD/target/release/bundle
+          mkdir -p "$out"
+          (cd BUILD && cargo cyclonedx --format json --spec-version 1.5 --manifest-path crates/epoch-tauri/Cargo.toml)
+          cp BUILD/crates/epoch-tauri/epoch-tauri.cdx.json "$out/epoch.cargo.cdx.json"
+          # **And the wrapper, because that is the file somebody downloads.** Setup carries the
+          # application inside it and is not the same tree: 320 components against the app's 511,
+          # overlapping but neither a subset of the other. One parts list per artefact, or the
+          # record describes something other than what was published.
+          (cd BUILD && cargo cyclonedx --format json --spec-version 1.5 --manifest-path crates/epoch-setup/Cargo.toml)
+          cp BUILD/crates/epoch-setup/epoch-setup.cdx.json "$out/epoch-setup.cargo.cdx.json"
+          (cd BUILD/ui && npm sbom --sbom-format cyclonedx) > "$out/epoch.npm.cdx.json"
+          # **A parts list nobody looked at is a file, not a record.** `grep` rather than `jq`
+          # or `python3`: neither was measured on this machine, and a release step that has
+          # never run is what the gates were added to stop. One `bom-ref` per component plus
+          # the document's own, so this is a floor rather than an exact count — enough to fail
+          # loudly on an empty or truncated document, which is the failure worth catching.
+          for f in "$out"/*.cdx.json; do
+            grep -q '"bomFormat"' "$f" || { echo "$f is not a CycloneDX document"; exit 1; }
+            echo "$f  $(grep -o '"bom-ref"' "$f" | wc -l) entries"
+          done
+
+      # This is what a signature would have bought, minus the part that costs money: not *who
+      # made it*, but *where it came from*, checkable by anybody with `gh`.
+      - name: Where these came from
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            BUILD/target/release/bundle/nsis/*.exe
+            BUILD/target/release/bundle/epoch-setup.exe
+            BUILD/target/release/bundle/*.cdx.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: epoch-windows
+          path: |
+            BUILD/target/release/bundle/nsis/*.exe
+            BUILD/target/release/bundle/epoch-setup.exe
+            BUILD/target/release/bundle/SHA256SUMS
+            BUILD/target/release/bundle/*.cdx.json
+          if-no-files-found: error

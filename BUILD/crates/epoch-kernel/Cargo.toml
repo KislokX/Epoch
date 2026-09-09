@@ -1,0 +1,22 @@
+[package]
+name = "epoch-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+# Not published. These are one product built from one workspace, not three libraries somebody
+# depends on -- and saying so is what makes a path dependency between them honest rather than a
+# wildcard into a registry.
+publish = false
+description = "Epoch Domain Kernel: canonical types. Pure, zero I/O, no provider or pack knowledge."
+
+# The Domain Kernel depends on nothing but serialization.
+# This is enforced by the crate boundary, not by discipline (ADR-0003, Domain Kernel doc).
+[dependencies]
+serde = { workspace = true }
+
+# Tests only. A `Control` is rendered by a surface across a JSON boundary (ADR-0003), so the
+# round trip is worth asserting where the type is defined. This never reaches a consumer of the
+# crate, so the dependency statement above still holds for anything that links it.
+[dev-dependencies]
+serde_json = { workspace = true }

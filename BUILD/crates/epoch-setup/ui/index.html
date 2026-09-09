@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Epoch Setup</title>
+    <!--
+      One page, one stylesheet, no build step and no framework.
+
+      This runs once on a machine that does not have Epoch yet, and every dependency it grew
+      would be a dependency of *installing* rather than of using. The World's own surface is a
+      Vite app because it is a product; this is a door.
+    -->
+    <link rel="stylesheet" href="skin.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1 id="title">EPOCH</h1>
+        <p class="sub">AI OPERATING SYSTEM</p>
+        <div class="rule"></div>
+        <p class="lede" id="lede">Looking at what this machine already has…</p>
+      </header>
+
+      <p class="warn" id="warn" hidden></p>
+
+      <div class="bar" id="bar" hidden>
+        <span id="doing"></span>
+        <span class="count" id="count"></span>
+      </div>
+      <div class="track" id="trackWrap" hidden><div class="fill" id="fill"></div></div>
+
+      <ul id="rows"></ul>
+      <pre id="log" hidden></pre>
+
+      <footer>
+        <button class="quiet" id="details" hidden>Show details</button>
+        <span class="grow"></span>
+        <button id="go" disabled>Install Epoch</button>
+      </footer>
+    </main>
+
+    <script type="module">
+      const { invoke } = window.__TAURI_INTERNALS__;
+      /*
+        Tauri's own `listen`, called directly because this page has no bundler to import from.
+
+        **`target` is not optional**, and leaving it off throws `missing required key target` —
+        which, at the top level of a module, takes everything after it with it: the survey ran
+        and the screen stayed on *Looking at what this machine already has…* forever.
+      */
+      const on = (name, run) =>
+        invoke("plugin:event|listen", {
+          event: name,
+          target: { kind: "Any" },
+          handler: window.__TAURI_INTERNALS__.transformCallback(run),
+        });
+
+      const el = (id) => document.getElementById(id);
+      const rows = el("rows");
+      let offers = [];
+      const wanted = new Set();
+      const steps = new Map();
+      let total = 0;
+      let installing = false;
+
+      /* ---- what this machine has -------------------------------------------------------- */
+
+      function drawSurvey() {
+        rows.replaceChildren();
+        for (const one of offers) {
+          const li = document.createElement("li");
+          li.className = one.found ? "here" : "";
+          const mark = document.createElement("span");
+          mark.className = "mark";
+          mark.textContent = one.found ? "✓" : "·";
+          const name = document.createElement("span");
+          name.className = "name";
+          // Only what is missing and installable is a choice. A box beside something already
+          // here would do nothing, and a box beside something Epoch cannot install would be a
+          // promise it cannot keep.
+          if (!one.found && one.how) {
+            const box = document.createElement("input");
+            box.type = "checkbox";
+            box.addEventListener("change", () => {
+              if (box.checked) wanted.add(one.id);
+              else wanted.delete(one.id);
+              drawButton();
+            });
+            name.append(box);
+          }
+          name.append(document.createTextNode(one.name));
+          /*
+            **The size beside the name, and only where one was measured.**
+
+            These rows are eight megabytes and eight hundred and sixty-seven, and that is not a
+            difference somebody should discover after pressing Install. What a package manager
+            fetches has no number here — finding out would be a network call per row in a screen
+            that has to draw before anything is reachable — and a row with no size says nothing
+            about its size rather than implying it is small.
+
+            Not shown once something is already here: a size is what a download will cost, and
+            a program on the disk is not going to be downloaded.
+          */
+          if (one.bytes && !one.found) {
+            const cost = document.createElement("i");
+            cost.className = "cost";
+            const mb = one.bytes / 1e6;
+            cost.textContent =
+              mb >= 1000
+                ? `${(mb / 1000).toFixed(1)} GB`
+                : mb >= 10
+                  ? `${Math.round(mb)} MB`
+                  : `${mb.toFixed(1)} MB`;
+            name.append(cost);
+          }
+          const what = document.createElement("span");
+          what.className = "what";
+          what.textContent = one.found ?? one.whyNot ?? one.what;
+          li.append(mark, name, what);
+          rows.append(li);
+        }
+        drawButton();
+      }
+
+      function drawButton() {
+        const go = el("go");
+        go.disabled = false;
+        go.textContent =
+          wanted.size === 0
+            ? "Install Epoch"
+            : `Install Epoch and ${wanted.size} more`;
+      }
+
+      /* ---- what is happening now -------------------------------------------------------- */
+
+      function drawSteps() {
+        rows.replaceChildren();
+        let finished = 0;
+        for (const one of steps.values()) {
+          if (one.state !== "running") finished += 1;
+          const li = document.createElement("li");
+          li.className = one.state;
+          const mark = document.createElement("span");
+          mark.className = "mark";
+          mark.textContent =
+            one.state === "done" ? "✓" : one.state === "failed" ? "✕" : "◌";
+          const name = document.createElement("span");
+          name.className = "name";
+          name.textContent = one.because
+            ? `${one.name} — needed by ${one.because}`
+            : one.name;
+          const took = document.createElement("span");
+          took.className = "took";
+          took.textContent = one.seconds == null ? "" : `${one.seconds.toFixed(1)}s`;
+          li.append(mark, name, took);
+          rows.append(li);
+        }
+        el("count").textContent = `${finished} of ${total} steps`;
+        el("fill").style.width = total === 0 ? "0" : `${Math.round((finished / total) * 100)}%`;
+        const running = [...steps.values()].find((it) => it.state === "running");
+        el("doing").textContent = running ? running.name : "Finished";
+      }
+
+      function drawLog() {
+        const lines = [];
+        for (const one of steps.values()) lines.push(...one.lines);
+        el("log").textContent = lines.join("\n");
+        el("log").scrollTop = el("log").scrollHeight;
+      }
+
+      /* ---- the run ---------------------------------------------------------------------- */
+
+      el("go").addEventListener("click", async () => {
+        if (installing) {
+          await invoke("open_epoch").catch((why) => {
+            el("warn").hidden = false;
+            el("warn").textContent = String(why);
+          });
+          return;
+        }
+        installing = true;
+        steps.clear();
+        el("go").disabled = true;
+        el("details").hidden = false;
+        el("bar").hidden = false;
+        el("trackWrap").hidden = false;
+        el("lede").textContent =
+          "Each one is its own download. This window says what is happening.";
+        drawSteps();
+        const refused = await invoke("install", { wanted: [...wanted] });
+        installing = "done";
+        el("go").disabled = false;
+        el("go").textContent = "Open Epoch";
+        el("lede").textContent =
+          refused.length === 0
+            ? "Everything asked for is on this machine."
+            : "Some of it would not install. The details say what each one answered.";
+        if (refused.length > 0) {
+          el("warn").hidden = false;
+          el("warn").textContent = refused.join("  ·  ");
+        }
+        drawSteps();
+      });
+
+      el("details").addEventListener("click", () => {
+        const log = el("log");
+        log.hidden = !log.hidden;
+        el("details").textContent = log.hidden ? "Show details" : "Hide details";
+        drawLog();
+      });
+
+      // **Subscribed before the first paint, and never in front of it.** A subscription that
+      // throws must not be able to stop the screen drawing what it already knows — which is what
+      // happened, and is why this is a `catch` rather than a bare `await`.
+      await on("setup:step", ({ payload }) => {
+        total = payload.total;
+        const one = steps.get(payload.id) ?? {
+          name: payload.name,
+          because: payload.because,
+          state: payload.state,
+          seconds: null,
+          lines: [],
+        };
+        one.state = payload.state;
+        if (payload.seconds != null) one.seconds = payload.seconds;
+        if (payload.line) one.lines.push(payload.line);
+        steps.set(payload.id, one);
+        drawSteps();
+        if (!el("log").hidden) drawLog();
+      }).catch((why) => {
+        el("warn").hidden = false;
+        el("warn").textContent =
+          "This window cannot follow the steps as they happen (" +
+          String(why) +
+          "). Installing still works; the details will only arrive at the end.";
+      });
+
+      /* ---- first paint ------------------------------------------------------------------ */
+
+      offers = await invoke("survey");
+      const carries = await invoke("carries_epoch");
+      el("lede").textContent = carries
+        ? "Epoch installs either way. Everything below is optional — take none of it and Epoch opens, and says what it is missing."
+        : "";
+      if (!carries) {
+        el("warn").hidden = false;
+        el("warn").textContent =
+          "This setup was built without Epoch inside it, so it cannot install anything. Build the app first, then build setup again.";
+        el("go").disabled = true;
+      }
+      drawSurvey();
+      if (!carries) el("go").disabled = true;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,105 @@
+# What may enter the dependency tree.
+#
+# ## Only the platforms Epoch actually ships
+#
+# Without this, the whole graph is checked — including Tauri's Linux backend, which pulls the
+# **unmaintained GTK3 bindings**. Ten advisories for code that is not compiled, not shipped and
+# not ours to vouch for yet.
+#
+# Ignoring them by id would be the wrong shape: it would silence a real warning about a real
+# platform. Naming the targets says the true thing instead — Epoch builds for Windows today, and
+# the day `ROADMAP.md` adds Linux, this list grows and those ten advisories come back, which is
+# exactly when somebody should have to look at them.
+
+[graph]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+]
+
+#
+# Not a formality: Epoch links a webview, an HTTP server, a JSON-RPC surface and Windows FFI, and
+# every one of those is a place where somebody else's code runs inside a process holding the
+# user's filesystem capabilities. A known advisory in that tree is a fact worth failing a build
+# over.
+
+[advisories]
+# Everything RustSec knows about. Vulnerabilities and unmaintained crates both fail — an
+# unmaintained crate is a vulnerability that has not been written down yet.
+yanked = "deny"
+
+# The five `unic-*` crates, recorded rather than silenced.
+#
+# They arrive as `tauri -> tauri-utils -> urlpattern -> unic-*`: pure Unicode **data** tables,
+# unmaintained rather than vulnerable, and not a dependency Epoch chose or can drop without
+# dropping Tauri. An advisory nobody can act on, left failing, is one that trains people to run
+# the check with `|| true`.
+#
+# Reviewed 2026-08-08. Worth re-reading when Tauri updates: if `urlpattern` moves on, this goes.
+#
+# **Read from the tool, not remembered.** The first version of this list was five ids I recalled;
+# every one was wrong. `cargo deny check advisories` prints them, which took ten seconds.
+ignore = [
+    "RUSTSEC-2025-0075", # unic-char-range
+    "RUSTSEC-2025-0080", # unic-common
+    "RUSTSEC-2025-0081", # unic-char-property
+    "RUSTSEC-2025-0098", # unic-ucd-version
+    "RUSTSEC-2025-0100", # unic-ucd-ident
+    # Two more of the same kind, and from one place: `polyscope-rs`, the 3D preview, brings in
+    # `egui`, which brings `epaint`, which brings both. Unmaintained rather than vulnerable, and
+    # neither is a dependency Epoch chose or can drop without dropping the preview.
+    #
+    # Reviewed 2026-09-07 by reading what the tool printed, not by recalling ids. Worth
+    # re-reading when `egui` updates: `ttf-parser` names `skrifa` as its successor, so this goes
+    # the day `ab_glyph` moves on. If the 3D preview is ever removed, both go with it.
+    "RUSTSEC-2024-0436", # paste, via pulp -> exr -> image
+    "RUSTSEC-2026-0192", # ttf-parser, via owned_ttf_parser -> ab_glyph -> epaint
+]
+
+# `licenses`, spelled the way the tool spells it. Caught by running it rather than by reading
+# it: the config deserialises strictly, so a British spelling here fails the whole check.
+[licenses]
+# Permissive only, and named individually. "Everything except X" is a policy that silently accepts
+# whatever gets invented next.
+confidence-threshold = 0.9
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    # Mozilla's root certificate set, by way of `webpki-roots` and `ureq`. The Community Data
+    # License Agreement is permissive and covers *data* rather than code — which is what a list
+    # of certificate authorities is.
+    "CDLA-Permissive-2.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    # **Font licences, and Epoch already ships under one of them.** `epaint_default_fonts`
+    # declares `(MIT OR Apache-2.0) AND OFL-1.1 AND Ubuntu-font-1.0` — the code is permissive
+    # and the two extra terms cover the typefaces bundled with it. OFL-1.1 is the same licence
+    # as Press Start 2P, which this repository already bundles deliberately and whose text sits
+    # beside it; Ubuntu-font-1.0 is permissive on the same terms. Both allow redistribution,
+    # which is the question this list exists to answer.
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+
+[bans]
+# Two versions of one crate is usually somebody's transitive pin and rarely worth failing over —
+# but it is worth *seeing*, because it is also how a patched crate ends up shipped alongside the
+# unpatched one it was meant to replace.
+multiple-versions = "warn"
+wildcards = "deny"
+# Our own crates, by path, in one workspace released as one thing. A wildcard *into the registry*
+# is the danger this rule exists for; a wildcard into the folder next door is not.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

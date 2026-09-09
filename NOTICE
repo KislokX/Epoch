@@ -1,0 +1,51 @@
+Epoch
+Copyright 2026 Jose Umaña
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+---------------------------------------------------------------------------
+Third-party content that ships inside this repository
+---------------------------------------------------------------------------
+
+Press Start 2P
+  SIL Open Font License 1.1, with the licence text beside the font. Bundled
+  deliberately: a desktop application may not reach the network to draw its own
+  first frame.
+
+Rust and npm dependencies
+  Listed in Cargo.lock and package-lock.json. Every one is permissive by
+  policy: BUILD/deny.toml names the licences that may enter the tree, and
+  continuous integration fails the build if another one does.
+
+---------------------------------------------------------------------------
+Programs Epoch can install for you, and does not distribute
+---------------------------------------------------------------------------
+
+Epoch fetches these from their own publishers, the way you would have, if you
+ask it to. None is bundled here and none is redistributed by this project. Each
+keeps its own licence, which Epoch shows on the row before you press anything.
+
+  Piper            GPL-3.0             text to speech
+  whisper.cpp      MIT                 speech to text
+  Piper voices     MIT (rhasspy)       the voices Piper reads
+  ONNX Runtime     MIT                 runs a converted voice
+  PyTorch (CPU)    BSD-3-Clause        converts a voice, once
+  Ollama           MIT                 runs models locally
+  llama.cpp        MIT                 runs models locally
+  LM Studio        proprietary, free   runs models locally
+  ComfyUI          GPL-3.0             draws pictures, video, sound and 3D
+  Claude Code      proprietary         Anthropic's coding agent
+  Codex            Apache-2.0          OpenAI's coding agent
+  Gemini CLI       Apache-2.0          Google's agent
+
+---------------------------------------------------------------------------
+Artwork
+---------------------------------------------------------------------------
+
+Everything under BUILD/packs/ is original, authored for Epoch. No third-party
+game assets of any kind: see CONTENT_PHILOSOPHY.md, whose hard rule governs what
+this project distributes.
