@@ -178,7 +178,7 @@ jobs:
             BUILD/target/release/bundle/epoch-setup.exe
             BUILD/target/release/bundle/*.cdx.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact\ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: epoch-windows
           path: |
@@ -187,3 +187,84 @@ jobs:
             BUILD/target/release/bundle/SHA256SUMS
             BUILD/target/release/bundle/*.cdx.json
           if-no-files-found: error
+
+  # **Somewhere a person can actually download from.**
+  #
+  # A build artefact is attached to a workflow run: it expires, and it takes a signed-in browser
+  # to reach. Everything above exists so that a stranger can check what they downloaded, and all
+  # of it was landing somewhere a stranger cannot get to.
+  #
+  # **A separate job, for the reason the one above has `contents: read`.** A job that builds must
+  # not be able to write to the repository, and a job that publishes has no business compiling
+  # anything. This one downloads what was built and attested and does nothing else — so what it
+  # publishes is the artefact the attestation is about, rather than a second build of the same
+  # commit that would have a different checksum.
+  #
+  # **A draft, on purpose.** The owner reads it and presses the button. Everything worth checking
+  # — the checksums, `gh attestation verify`, installing from the downloaded file rather than a
+  # local one — works against a draft, and if any of it fails there was never anything published
+  # to withdraw.
+  publish:
+    needs: windows
+    # Only a tag is a release. `workflow_dispatch` stays useful for proving the build without
+    # producing something that looks like one.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact\d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: epoch-windows
+          path: release
+
+      # `gh` is on the runner already. A third-party action for what is one command would be one
+      # more thing to pin, review and trust.
+      #
+      # The notes go through a file rather than a flag: they are Markdown with backticks and
+      # newlines in them, and quoting that through a shell argument is a way to publish something
+      # subtly different from what was written.
+      - name: A draft, with everything beside it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          find release -type f | sort
+
+          cat > notes.md <<'NOTES'
+          Windows. Unsigned, and that is a decision rather than an omission — a certificate is a
+          recurring cost and buys *who made this*, which is the half a stranger can least act on.
+          What replaces it is free and checkable.
+
+          **Which file.** `epoch-setup.exe` is the one to download: it carries Epoch inside it and
+          offers the extras this machine does not have yet. `Epoch_*_x64-setup.exe` is the plain
+          installer, for somebody who wants only the application.
+
+          **Checking what you have.**
+
+          ```
+          sha256sum -c SHA256SUMS
+          gh attestation verify epoch-setup.exe --repo OWNER_REPO
+          ```
+
+          The first says the file is the one this job produced. The second says it came from this
+          commit of this repository, built on GitHub's runners, signed through a public
+          transparency log.
+
+          **Neither of them stops SmartScreen**, and nothing here pretends otherwise: only
+          reputation or an EV certificate does. Windows will warn; *More info* then *Run anyway*
+          is the way past it, and the two commands above are how you decide whether you want to.
+
+          **What is inside it.** The `.cdx.json` files are CycloneDX parts lists — one for the
+          application, one for setup, one for the frontend.
+          NOTES
+          sed -i "s|OWNER_REPO|${GITHUB_REPOSITORY}|" notes.md
+
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file notes.md \
+            $(find release -type f | sort)
