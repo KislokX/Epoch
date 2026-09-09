@@ -1,4 +1,0 @@
-# The installers themselves: rebuilt from source in one command, 33 MB a pair, and a new pair
-# every time anything changes. The source is what history is for.
-*.exe
-*.msi

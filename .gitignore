@@ -137,3 +137,22 @@ Claudetransfer8.md
 LastClaudeTransfer.md
 CODEX_NEWPLAN.MD
 docs/Build/Minecraft.md
+
+# EpochServices lives in its own repository: github.com/KislokX/Epoch-Services. Owner's decision,
+# 2026-09-08. It keeps a copy of the five crates it shares with Epoch rather than reaching into
+# this tree by path, so the two build separately — and the two-surfaces rule now costs a second
+# clone rather than a second `cargo test`.
+EpochServices/
+
+# Working directories that were never part of the product.
+#
+# `AMDBuild/` is a note about carrying a setup to a machine with an AMD card. `UINEW/` is two
+# zips of design work. `tools/` is a handful of sprite-sheet scripts, one of which is a compiled
+# `.pyc` that should never have been in a repository at all.
+AMDBuild/
+UINEW/
+tools/
+
+# The other agent's handover, and the same decision the seven above it got: a conversation
+# between one session and the next, stale the morning after it is written.
+CODEX.md

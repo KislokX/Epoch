@@ -16,7 +16,7 @@
 # six fixtures written with Windows paths that measured nothing on a Mac while reading as though
 # they measured the most important case.
 #
-# EpochServices is *usually* the Mac in this pair, so a Windows-only CI was checking the program
+# The Mac job is here because *usually* is not a platform: a Windows-only CI was checking the
 # that mostly runs somewhere else. This job is what stops that from being true again.
 #
 # It does not run the frontend: TypeScript does not have an operating system, and running `npm
@@ -24,8 +24,11 @@
 #
 # ## Both programs, every time
 #
-# EpochServices was not built here at all, and it shares four crates with Epoch. The standing
-# two-surfaces rule — *ask whether EpochServices needs this too* — fails quietly, and the bill
+# EpochServices lives in its own repository now (owner's decision, 2026-09-08) and is not built
+# here. **The two-surfaces rule did not go with it, and this is the part worth reading:** it still
+# shares five crates with Epoch, by copy rather than by path, so *ask whether EpochServices needs
+# this too* is now a question nothing in this file can answer. Its own CI is the other half, and
+# a change to a shared crate has to reach it. The bill
 # arrives on the day somebody needs to deploy to the other machine rather than the day it broke.
 # It has been paid twice. So both are checked in the same job, and a shared crate that only
 # compiles on one side fails here.
@@ -91,9 +94,6 @@ jobs:
         working-directory: BUILD
         run: cargo check --workspace --locked
 
-      - name: EpochServices builds on the minimum
-        working-directory: EpochServices
-        run: cargo check --locked
 
       - name: Back to stable for the rest
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
@@ -103,9 +103,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
-          workspaces: |
-            BUILD
-            EpochServices
+          workspaces: BUILD
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -131,20 +129,6 @@ jobs:
       - name: Tests
         working-directory: BUILD
         run: cargo test --workspace
-
-      # --------------------------------------------------------- EpochServices
-
-      - name: Services formatting
-        working-directory: EpochServices
-        run: cargo fmt --check
-
-      - name: Services lint
-        working-directory: EpochServices
-        run: cargo clippy --all-targets -- -D warnings
-
-      - name: Services tests
-        working-directory: EpochServices
-        run: cargo test
 
       # ---------------------------------------------------------- Presentation
 
@@ -189,7 +173,7 @@ jobs:
       - name: Every skipped test says what it is waiting for
         shell: bash
         run: |
-          bare=$(grep -rEn '^[[:space:]]*#\[ignore\]' --include='*.rs' BUILD/crates EpochServices || true)
+          bare=$(grep -rEn '^[[:space:]]*#\[ignore\]' --include='*.rs' BUILD/crates || true)
           if [ -n "$bare" ]; then
             echo "These are skipped with no reason. Write one: #[ignore = \"needs ...\"]"
             echo "$bare"
@@ -198,14 +182,15 @@ jobs:
 
       # ------------------------------------------------------- Supply chain
 
-      # Both, because they have different dependency trees and different target lists: Epoch
-      # builds for Windows, and EpochServices already runs on a Mac.
+      # **One tree here, and the other one is not this repository's to check.** EpochServices has
+      # its own `deny.toml` with its own target list — it runs on a Mac and on Linux, which Epoch
+      # does not — and its own CI runs it. Auditing a copy of it from here would be this file
+      # asserting something about a repository it cannot see.
       - name: Advisories and licences
         shell: bash
         run: |
           cargo install cargo-deny --locked
           (cd BUILD && cargo deny check)
-          (cd EpochServices && cargo deny check)
 
       # **And the other ecosystem, which had no gate at all.** `cargo deny` covers Rust; the
       # frontend's advisories were being found by somebody running `npm audit` by hand, which is
@@ -249,9 +234,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
-          workspaces: |
-            BUILD
-            EpochServices
+          workspaces: BUILD
 
       - name: Lint
         working-directory: BUILD
@@ -261,10 +244,3 @@ jobs:
         working-directory: BUILD
         run: cargo test --workspace
 
-      - name: Services lint
-        working-directory: EpochServices
-        run: cargo clippy --all-targets -- -D warnings
-
-      - name: Services tests
-        working-directory: EpochServices
-        run: cargo test
