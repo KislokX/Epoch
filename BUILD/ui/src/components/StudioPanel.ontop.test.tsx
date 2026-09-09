@@ -9,7 +9,7 @@
  * So: the picture in play is shown, and SIZE stops offering a list it does not decide.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -70,7 +70,17 @@ async function handOver() {
   const inputs = [...document.querySelectorAll<HTMLInputElement>("input[type=file]")];
   const one = inputs.find((it) => !it.closest(".cedit__steer"));
   if (!one) throw new Error("no picker for the base picture");
+
+  // **Handing a picture over is not finished when the input has one.** `ImageDrop` reads the
+  // bytes through a `FileReader`, whose `onload` fires on a macrotask, so `userEvent.upload`
+  // returns before the studio has been handed anything. Its sibling in `StudioPanel.steer`
+  // failed on a loaded CI runner for exactly this; these assertions happen to use `findBy*`
+  // and so were never bitten, which is luck rather than a difference worth keeping.
+  const before = handed.mock.calls.length;
   await userEvent.upload(one, new File([" "], "us.png", { type: "image/png" }));
+  await waitFor(() => {
+    expect(handed.mock.calls.length).toBeGreaterThan(before);
+  });
 }
 
 function sizePicker(): HTMLSelectElement | undefined {
