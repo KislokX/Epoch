@@ -99,6 +99,8 @@ Desktop.ini
 
 # Throwaway capture from browser tooling. Timestamped noise, never read twice.
 BUILD/crates/epoch-tauri/.playwright-mcp/
+# And the one a session left two directories up. Same thing, and the rule only named one place.
+BUILD/.playwright-mcp/
 
 # Third-party README files, fetched when an MCP server is installed so the crew can read what its
 # authors wrote about it. Somebody else's documentation, under somebody else's licence — it is a
@@ -156,3 +158,4 @@ tools/
 # The other agent's handover, and the same decision the seven above it got: a conversation
 # between one session and the next, stale the morning after it is written.
 CODEX.md
+ClaudePlan.md

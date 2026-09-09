@@ -1520,12 +1520,27 @@ mod tests {
 
     #[test]
     fn the_launcher_finds_every_world_that_ships() {
+        // **Counted off the directory rather than written down.** This asserted `>= 2`, which
+        // was true while two packs shipped and became a statement about the product rather than
+        // about discovery the day one of them was removed. What is worth holding is that every
+        // pack on disk is found and none of them reports a problem — a number is a second place
+        // deciding which Worlds ship.
+        let shipped: Vec<String> = std::fs::read_dir(worlds_dir())
+            .expect("the packs directory ships")
+            .flatten()
+            .filter(|entry| entry.path().join("pack.toml").is_file())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(!shipped.is_empty(), "something has to ship");
+
         let view = survey();
-        assert!(
-            view.worlds.len() >= 2,
-            "expected at least two Worlds, found {:?}",
-            view.worlds.iter().map(|w| &w.id).collect::<Vec<_>>()
-        );
+        let found: Vec<&str> = view.worlds.iter().map(|w| w.id.as_str()).collect();
+        for one in &shipped {
+            assert!(
+                found.contains(&one.as_str()),
+                "{one} ships and was not found: {found:?}"
+            );
+        }
         assert!(view.problems.is_empty(), "{:?}", view.problems);
     }
 

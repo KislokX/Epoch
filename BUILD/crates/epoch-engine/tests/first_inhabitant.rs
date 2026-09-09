@@ -37,12 +37,12 @@ fn registry() -> DefinitionRegistry {
 }
 
 fn chain() -> WorldPackChain {
-    let pack = WorldPack::load(&build_root().join("packs/default/pack.toml"))
-        .expect("the shipped default pack must load");
+    let pack = WorldPack::load(&build_root().join("packs/archipelago/pack.toml"))
+        .expect("the shipped pack must load");
     WorldPackChain::new(vec![pack])
 }
 
-/// Whoever the fixture vault says lives in the default World.
+/// Whoever the fixture vault says lives in the shipped World.
 ///
 /// Named by archetype rather than by a person, which is what the fixture is for: Epoch's real
 /// cast is a deferred milestone, and a test that hardcoded a name would be the easiest place
@@ -85,14 +85,17 @@ fn someone_is_already_here() {
     // The emotional goal of this step, asserted: a named inhabitant, in a named place,
     // doing something, without the user having done anything.
     //
-    // Whoever the user has put in the default World — not a specific person. The claim is
+    // Whoever the user has put in the shipped World — not a specific person. The claim is
     // that somebody is *there and legible*, which stays true however the roster is edited.
     let registry = registry();
-    let view = WorldView::project(&chain(), &Simulation::populate(&registry, "default").cast());
+    let view = WorldView::project(
+        &chain(),
+        &Simulation::populate(&registry, "archipelago").cast(),
+    );
 
     assert!(
         !view.characters.is_empty(),
-        "the default World ships with somebody living in it"
+        "the shipped World ships with somebody living in it"
     );
 
     for person in &view.characters {
@@ -136,7 +139,7 @@ fn a_world_is_populated_only_by_the_people_who_live_in_it() {
     // that fails the first time the feature it covers is actually used.
     let registry = registry();
 
-    for world in ["default", "archipelago"] {
+    for world in ["archipelago", "archipelago"] {
         let present: Vec<String> = Simulation::populate(&registry, world)
             .cast()
             .iter()
@@ -175,7 +178,7 @@ fn a_face_is_projected_when_authored_and_absent_when_not() {
 
     let mut faces = 0;
     let mut bare = 0;
-    for world in ["default", "archipelago"] {
+    for world in ["archipelago", "archipelago"] {
         for person in
             WorldView::project(&chain(), &Simulation::populate(&registry, world).cast()).characters
         {

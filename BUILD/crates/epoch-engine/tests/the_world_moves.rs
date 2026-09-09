@@ -26,7 +26,7 @@ use epoch_kernel::{
 /// The World Epoch actually ships, loaded from the file it ships as.
 fn shipped() -> WorldPackChain {
     let pack = WorldPack::load(
-        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/default/pack.toml"),
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/archipelago/pack.toml"),
     )
     .expect("the shipped default World must load");
     WorldPackChain::new(vec![pack])
@@ -40,7 +40,7 @@ fn scholar() -> CharacterDefinition {
         archetype: CharacterArchetype::Researcher,
         role: "Turns goals into designs".into(),
         worlds: [(
-            "default".to_string(),
+            "archipelago".to_string(),
             Residence {
                 home: Some(PlaceId::new("research_lab")),
                 // The per-World half: reading happens at the Library *here* (ADR-0028).
@@ -70,7 +70,7 @@ fn scholar() -> CharacterDefinition {
 fn world_of(who: CharacterDefinition) -> (WorldPackChain, Simulation) {
     let chain = shipped();
     let mut sim = Simulation::of(vec![CharacterInstance::spawn(
-        "default",
+        "archipelago",
         who,
         None,
         None,
@@ -89,7 +89,7 @@ fn a_routine_carries_somebody_across_the_world_epoch_ships() {
     let start = Instant::now();
 
     // Her routine says reading happens at the Library and she is at the Laboratory, so she sets
-    // out. No test fixture geography: these are the buildings in `packs/default/pack.toml`, at
+    // out. No test fixture geography: these are the buildings in `packs/archipelago/pack.toml`, at
     // the distance somebody actually sees.
     let departure = sim.advance(start);
     assert_eq!(
@@ -117,8 +117,17 @@ fn a_routine_carries_somebody_across_the_world_epoch_ships() {
     // Walking on a routine is idle-class. Nothing is running, and the World may not imply that
     // anything is (Build From Life, rule 3).
     assert_eq!(mage["class"], "idle");
-    // In the user's own words for their own building, never an id.
-    assert_eq!(mage["activity"], "walking to The Library");
+    // In the user's own words for their own building, never an id. Read off the World rather
+    // than typed: the name belongs to whoever authored the pack, and hard-coding it made this a
+    // test about one World's vocabulary instead of about the projection.
+    let named = json["places"]
+        .as_array()
+        .expect("places")
+        .iter()
+        .find(|place| place["concept"] == "knowledge_center")
+        .map(|place| place["title"].as_str().expect("a title").to_owned())
+        .expect("the shipped World names its knowledge centre");
+    assert_eq!(mage["activity"], format!("walking to {named}"));
 
     // The ETA is the real distance at walking pace, not a constant. Two buildings in the shipped
     // World are far enough apart to be a walk worth watching and short enough to be a walk.
@@ -185,7 +194,7 @@ fn a_world_with_nothing_drawn_in_it_keeps_everybody_exactly_where_they_are() {
     // The state a brand-new World is in, and the one a half-built World stays in. Nobody moves,
     // nothing fails, and nobody ends up standing at the origin.
     let mut sim = Simulation::of(vec![CharacterInstance::spawn(
-        "default",
+        "archipelago",
         scholar(),
         None,
         None,

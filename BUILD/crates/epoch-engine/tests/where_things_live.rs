@@ -32,9 +32,21 @@ fn a_test_binary_finds_the_tree_it_was_built_in() {
         "packs must exist where Epoch will look: {}",
         paths.packs().display()
     );
+    // **A World Pack ships, rather than a named one.** This asked for `default`, which stopped
+    // shipping on 2026-09-08 — and the property it was guarding was never about that pack: it is
+    // that a running Epoch finds *something* to open. Read off the directory, so the day a second
+    // World ships this needs no edit and the day none does it still fails.
+    let shipped: Vec<String> = std::fs::read_dir(paths.packs())
+        .expect("the packs directory is readable")
+        .flatten()
+        .filter(|entry| entry.path().join("pack.toml").is_file())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
     assert!(
-        paths.packs().join("default").is_dir(),
-        "the default World Pack ships with the product"
+        !shipped.is_empty(),
+        "no World Pack ships with the product; {} holds {:?}",
+        paths.packs().display(),
+        shipped
     );
 
     // And the vault stays with it, which is what keeps a developer's crew from vanishing.
