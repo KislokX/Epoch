@@ -1,8 +1,0 @@
-[     890ms] [WARNING] Manifest: property 'migrate_from' ignored, manifest must specify an 'id' property in order to receive a migration. @ https://www.youtube.com/manifest.webmanifest:0
-[    1334ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fsignin_passive%26feature%3Dpassive&hl=en:0
-[    1452ms] [INFO] LegacyDataMixin will be applied to all legacy elements.
-Set `_legacyUndefinedCheck: true` on element class to enable. @ https://www.youtube.com/s/_/ytmainappweb/_/js/k=ytmainappweb.kevlar_base.en_US.C-E9bW-emrE.es5.O/am=AAAAAAEAEAASAw/d=1/br=1/rs=AGKMywERN9yJ7PB9hKrjBFu3C_mI-AIHPQ/m=kevlar_base_module,kevlar_main_module,kevlar_base_sync_mod_chunk:13016
-[    1707ms] [ERROR] Failed to load resource: net::ERR_NETWORK_ACCESS_DENIED @ https://googleads.g.doubleclick.net/pagead/id:0
-[    2117ms] [WARNING] The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127 @ :0
-[    2442ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ https://www.youtube.com/:0
-[    2925ms] [ERROR] Failed to load resource: net::ERR_NETWORK_ACCESS_DENIED @ https://static.doubleclick.net/instream/ad_status.js:0
