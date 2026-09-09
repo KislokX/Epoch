@@ -159,3 +159,7 @@ tools/
 # between one session and the next, stale the morning after it is written.
 CODEX.md
 ClaudePlan.md
+
+# Two lines that wait for Epoch to open its debugging port. Scaffolding for driving the window
+# over CDP, useful and nobody else's business.
+waitup.sh
