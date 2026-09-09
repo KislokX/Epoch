@@ -168,7 +168,10 @@ fn read_glb(path: &Path) -> Option<(Vec<Vec3>, Vec<UVec3>)> {
             match read.read_indices() {
                 Some(indices) => {
                     let flat: Vec<u32> = indices.into_u32().collect();
-                    for tri in flat.chunks_exact(3) {
+                    // A triangle is three indices and the width is a constant, so it arrives
+                    // as an array. A trailing index or two -- a mesh whose index buffer is not a
+                    // whole number of triangles -- is dropped, exactly as before.
+                    for tri in flat.as_chunks::<3>().0 {
                         faces.push(UVec3::new(base + tri[0], base + tri[1], base + tri[2]));
                     }
                 }

@@ -94,18 +94,22 @@ pub fn replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
 /// theirs. Pretending to set one would be the kind of gesture that reads as a protection and is
 /// not.
 fn create(at: &Path) -> std::io::Result<std::fs::File> {
+    // Both arms are blocks, and both are tail expressions. The `return` that used to be here
+    // read as a guard and was not one: exactly one of these exists after `cfg` is applied.
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt as _;
-        return std::fs::OpenOptions::new()
+        std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .mode(0o600)
-            .open(at);
+            .open(at)
     }
     #[cfg(not(unix))]
-    std::fs::File::create(at)
+    {
+        std::fs::File::create(at)
+    }
 }
 
 #[cfg(windows)]

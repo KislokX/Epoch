@@ -82,8 +82,14 @@ pub fn read_wav(bytes: &[u8]) -> Result<Sound, String> {
     // 1 is integer PCM, 3 is IEEE float, 0xFFFE is "extensible" and carries the real one in a
     // sub-format Epoch does not read — so it is refused rather than assumed.
     let mono: Vec<f32> = match (format, bits) {
+        // `as_chunks` rather than `chunks_exact`: the width is a constant, so the compiler is
+        // told it is one and the closure receives an array instead of a slice it has to trust.
+        // The remainder — a WAV whose data length is not a whole number of frames — is dropped
+        // exactly as `chunks_exact` dropped it.
         (1, 16) => mix(
-            data.chunks_exact(2)
+            data.as_chunks::<2>()
+                .0
+                .iter()
                 .map(|it| i16::from_le_bytes([it[0], it[1]]) as f32 / 32768.0),
             channels as usize,
         ),
@@ -92,7 +98,9 @@ pub fn read_wav(bytes: &[u8]) -> Result<Sound, String> {
             channels as usize,
         ),
         (3, 32) => mix(
-            data.chunks_exact(4)
+            data.as_chunks::<4>()
+                .0
+                .iter()
                 .map(|it| f32::from_le_bytes([it[0], it[1], it[2], it[3]])),
             channels as usize,
         ),

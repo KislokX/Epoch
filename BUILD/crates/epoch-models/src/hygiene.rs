@@ -294,7 +294,7 @@ fn cpu_percent() -> Option<f64> {
     let after = text.rsplit("load average").next()?;
     let one: f64 = after
         .trim_start_matches(|c: char| !c.is_ascii_digit())
-        .split(|c: char| c == ',' || c == ' ')
+        .split([',', ' '])
         .next()?
         .parse()
         .ok()?;
