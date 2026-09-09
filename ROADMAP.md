@@ -4792,8 +4792,10 @@ is the one that is true.
 
 #### What actually happened
 
-**One repository so far, not two, and it exists**: `github.com/KislokX/Epoch`, public, `main`
-tracked and pushed. `github.com/KislokX/Epoch-Services` also exists and is **empty** — a LICENSE
+**One repository so far, not two, and it exists**: `github.com/KislokX/Epoch`, `main` tracked
+and pushed. It was **private** until 2026-09-09, when the owner made it public — this sentence
+said *public* for a day while it was not, which is the documentation failure this file has a
+section about, committed inside the section about it. `github.com/KislokX/Epoch-Services` also exists and is **empty** — a LICENSE
 and GitHub's own *Initial commit*, nothing else.
 
 **The history was squashed rather than scrubbed.** The publication branch opens at one root
@@ -4827,6 +4829,43 @@ it was found and read; the README was simply not on the list somebody made.
 
 Fixed in `607f9ad`, and merged rather than swapped — the version in the tree had the accurate
 artefact names and verify commands, which the older draft got wrong.
+
+#### The address that had no reason to be here *(2026-09-09)*
+
+**Going public is when a private repository's contents stop being a private matter, so the
+tree and the history were read again on the day the decision was taken** — the last day the
+answer is free.
+
+No credential was ever committed, and that is measured rather than remembered: the only hit
+for every key shape worth grepping is `sk-ant-secret`, a literal in an `anthropic.rs` test.
+The 772 commits of real development are on `archive/pre-publication`, which has no remote, so
+what publication exposes is the twelve commits of `main` and nothing else.
+
+What it found was an **address**. The owner's personal one — not the account the commits are
+authored by, which is the repository's own identity and stays — appeared three times, and no
+assertion, no measurement and no claim depended on any of them:
+
+| where | what it was doing |
+|---|---|
+| `agents/claude.rs` | a doc comment recording that pointing `CLAUDE_CONFIG_DIR` at an empty directory leaves the real sign-in untouched. *Whose* sign-in it was is not part of the claim |
+| `ConnectionsPanel.accounts.test.tsx` | the fixture for a second account. The test is about a qualifier appearing when one program has two sign-ins, and it passes against any two distinct strings |
+| `ROADMAP.md` | a usage bar transcribed from the window during the measurement that closed the work |
+
+**The twelve commits were rewritten rather than fixed forward**, because a public repository
+publishes its history and a forward fix removes a string from the present only. Rewriting is
+cheap while nobody has cloned it and impossible afterwards, which makes the moment before
+publication the only moment it is a decision rather than a regret.
+
+> **The check that means anything compares the rewrite against the fix nobody automated.** The
+> three edits were made by hand first, and the rewritten tree is byte-identical to them —
+> `git diff` between the two is empty. A rewrite verified only against itself proves that a
+> script ran, never that it did the right thing.
+
+And the first attempt to make the edits flipped `ROADMAP.md` and one test file wholesale from
+CRLF to LF — a three-line change arriving as a ten-thousand-line diff. **`cargo fmt` has cost
+this project that trap three times and an in-place `sed` is the fourth.** Everything here is
+done in slurp mode over bytes, and the CR and LF counts are read back afterwards rather than
+assumed.
 
 #### How a release is cut
 
