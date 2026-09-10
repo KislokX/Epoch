@@ -91,10 +91,16 @@ jobs:
 
       # **The one file somebody downloads.**
       #
-      # `epoch-setup` carries the app's own MSI inside it, so a person runs one program rather
-      # than a program and a list of instructions — which is the whole reason that crate exists,
-      # and it was never built here. The order is not optional: its `build.rs` embeds the MSI the
-      # step above produced, and a setup built first carries nothing and says so at runtime.
+      # `epoch-setup` carries the app's own installer inside it, so a person runs one program
+      # rather than a program and a list of instructions — which is the whole reason that crate
+      # exists, and it was never built here. The order is not optional: its `build.rs` embeds the
+      # installer the step above produced, and a setup built first carries nothing and says so at
+      # runtime.
+      #
+      # **It embeds the NSIS installer, not the MSI, and that was measured rather than chosen.**
+      # Carrying the MSI made this file unusable for the person it is written for: perMachine,
+      # run `/qn`, so an ordinary double-click answered `Error 1925 — you do not have sufficient
+      # privileges` with no UAC prompt it could even offer. See `crates/epoch-setup/build.rs`.
       #
       # Not bundled — `bundle.active` is false in its own config. This binary *is* the artefact.
       - name: Setup, with Epoch inside it
@@ -106,12 +112,13 @@ jobs:
       # the log took a different path.
       # **Two artefacts, and the MSI is deliberately not one of them.**
       #
-      # It is still built — `epoch-setup` embeds it — and it is not offered as a download.
-      # `InstallScope="perMachine"`, into Program Files, while every other part of Epoch is per
-      # user: the program in `%LOCALAPPDATA%`, `SetShellVarContext current` in the uninstall
-      # hook, the vault under `%APPDATA%`. Its uninstall has no delete-app-data option and never
-      # runs that hook, so publishing it offered a second way in that nothing here has measured.
-      # One installation path, and it is the one the tests are about.
+      # `tauri build` still produces it and nothing consumes it any more — `epoch-setup` used to,
+      # and that was the defect. `InstallScope="perMachine"`, into Program Files, while every
+      # other part of Epoch is per user: the program in `%LOCALAPPDATA%`, `SetShellVarContext
+      # current` in the uninstall hook, the vault under `%APPDATA%`. Its uninstall has no
+      # delete-app-data option and never runs that hook, so publishing it would offer a second
+      # way in that nothing here has measured. One installation path, and it is the one the tests
+      # are about.
       #
       # **The names written here are the names the person checking will have.** A Release page is
       # flat -- `gh release create` uploads every asset under its basename -- while these files

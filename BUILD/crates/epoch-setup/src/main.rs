@@ -3,8 +3,8 @@
 //! ## What it is, and what it is not
 //!
 //! It installs Epoch, finds what is already on the machine, offers the rest, and installs what
-//! was chosen. It is one file: the app's own MSI rides inside this binary, so a person downloads
-//! one program rather than a program and a list of instructions.
+//! was chosen. It is one file: the app's own installer rides inside this binary, so a person
+//! downloads one program rather than a program and a list of instructions.
 //!
 //! It is **not** the Launcher, and the distinction is the whole reason this crate exists. The
 //! Launcher plays with what it has and offers help for the extras — that is what `CONNECTIONS`
@@ -21,8 +21,13 @@
 //! any type in this crate that a credential could travel through, which is a guarantee the
 //! compiler keeps rather than one a review does.
 //!
-//! **A gauge with nothing behind it must read empty.** A setup built without the MSI in it says
+//! **A gauge with nothing behind it must read empty.** A setup built without Epoch in it says
 //! exactly that and refuses, rather than reporting a successful install of nothing.
+//!
+//! **Per user, because everything else here is.** Epoch lives in `%LOCALAPPDATA%`, its vault and
+//! model library in `%APPDATA%`, and its uninstaller in the user's own registry hive. Setup used
+//! to carry the perMachine MSI instead, which asks for a privilege nobody granted — see
+//! `build.rs` for what that measured to on a machine that had not been elevated.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -32,7 +37,7 @@ use tauri::Emitter;
 ///
 /// Empty when this was built before the app was — see `build.rs`. That is a state the program
 /// reports rather than a state it pretends out of.
-const EPOCH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/epoch.msi"));
+const EPOCH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/epoch-installer.exe"));
 
 /// One step of the run, as the window draws it.
 const STEP: &str = "setup:step";
@@ -127,15 +132,36 @@ async fn install(app: tauri::AppHandle, wanted: Vec<String>) -> Result<Vec<Strin
     .map_err(|why| why.to_string())
 }
 
-/// Write the carried MSI somewhere and let Windows install it.
+/// Where the installer puts Epoch. Per user, and that is the whole point of this file.
 ///
-/// **Quietly, because this window is already reporting it.** `/qn` gives no second progress bar in
-/// front of the one the person is watching; `/norestart` because deciding to reboot somebody's
-/// machine is not a thing an installer does without asking.
+/// One answer, read by the step that installs and by the button that opens — because two places
+/// spelling out the same path is how they come to disagree, and the half nobody is watching is
+/// the one that gets it wrong.
+fn epoch_lives_at() -> Option<std::path::PathBuf> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .map(|base| base.join("Epoch").join("epoch-tauri.exe"))
+}
+
+/// Write the carried installer somewhere and run it.
 ///
-/// The log goes to a file `msiexec` writes and the lines are read back afterwards: `msiexec`
-/// returns immediately and says nothing to a pipe, so a runner that read its output would report
-/// a successful install having watched nothing at all.
+/// **Quietly, because this window is already reporting it.** `/S` is NSIS' silent switch, so
+/// there is no second progress bar in front of the one the person is watching.
+///
+/// ## A silent installer says nothing, so the side effect is what is read
+///
+/// The MSI this used to carry wrote a verbose log and the last lines of it were reported here,
+/// which was the honest thing to do with a program that explains itself in a file. NSIS has no
+/// such file — it succeeds or it does not — so the check is the thing itself: is Epoch on the
+/// disk where the installer puts it?
+///
+/// That is this project's own rule about a success code being a claim about the transport rather
+/// than about the work, and it is worth more here than the log ever was.
+///
+/// **The exit code is still read first, and the order matters.** On a machine that already has
+/// Epoch, a *failed* run would leave the previous install sitting exactly where this looks — so
+/// treating "the file is there" as success on its own would report a reinstall that did nothing
+/// as a reinstall that worked. The code has to agree before the disk is believed.
 fn install_epoch(say: &dyn Fn(&str)) -> Result<f64, String> {
     if EPOCH.is_empty() {
         return Err(
@@ -146,8 +172,8 @@ fn install_epoch(say: &dyn Fn(&str)) -> Result<f64, String> {
     }
     if !cfg!(target_os = "windows") {
         return Err(
-            "This setup installs Epoch from an MSI, which is Windows' own format. On macOS the \
-             app is the bundle from `target/release/bundle`."
+            "This setup installs Epoch from a Windows installer. On macOS the app is the bundle \
+             from `target/release/bundle`."
                 .to_owned(),
         );
     }
@@ -155,44 +181,39 @@ fn install_epoch(say: &dyn Fn(&str)) -> Result<f64, String> {
     let began = std::time::Instant::now();
     let here = std::env::temp_dir().join("epoch-setup");
     std::fs::create_dir_all(&here).map_err(|why| format!("nowhere to unpack Epoch: {why}"))?;
-    let msi = here.join("Epoch.msi");
-    let log = here.join("install.log");
-    std::fs::write(&msi, EPOCH).map_err(|why| format!("Epoch could not be unpacked: {why}"))?;
-    say(&format!("Unpacked Epoch to {}", msi.display()));
+    let installer = here.join("Epoch-Setup.exe");
+    std::fs::write(&installer, EPOCH)
+        .map_err(|why| format!("Epoch could not be unpacked: {why}"))?;
+    say(&format!("Unpacked Epoch to {}", installer.display()));
 
-    let said = std::process::Command::new("msiexec")
-        .arg("/i")
-        .arg(&msi)
-        .args(["/qn", "/norestart", "/l*v"])
-        .arg(&log)
+    let said = std::process::Command::new(&installer)
+        .arg("/S")
         .status()
-        .map_err(|why| format!("Windows Installer could not be started: {why}"))?;
+        .map_err(|why| format!("Epoch's installer could not be started: {why}"))?;
 
-    // Its own words, in its own log. The last lines are where a failure explains itself, and a
-    // sentence written here would be Epoch guessing about Windows' refusal.
-    if let Ok(written) = std::fs::read_to_string(&log) {
-        for line in written
-            .lines()
-            .rev()
-            .take(12)
-            .collect::<Vec<_>>()
-            .iter()
-            .rev()
-        {
-            let line = line.trim();
-            if !line.is_empty() {
-                say(line);
-            }
-        }
+    if !said.success() {
+        return Err(format!(
+            "Epoch's installer stopped with {said} and nothing was installed."
+        ));
     }
 
-    if said.success() {
-        return Ok(began.elapsed().as_secs_f64());
+    let Some(at) = epoch_lives_at() else {
+        return Err(
+            "This machine does not say where a user's programs live (%LOCALAPPDATA% is \
+                    unset), so there is nowhere to check whether Epoch arrived."
+                .to_owned(),
+        );
+    };
+    if !at.is_file() {
+        return Err(format!(
+            "The installer finished without complaint and Epoch is not at {}. Nothing was \
+             installed, whatever the exit code said.",
+            at.display()
+        ));
     }
-    Err(format!(
-        "Windows Installer stopped with {said}. The whole log is at {}.",
-        log.display()
-    ))
+
+    say(&format!("Epoch is at {}", at.display()));
+    Ok(began.elapsed().as_secs_f64())
 }
 
 /// Open Epoch, and close this.
@@ -200,17 +221,25 @@ fn install_epoch(say: &dyn Fn(&str)) -> Result<f64, String> {
 /// **Only where it was actually installed.** A launcher button that reports success by opening
 /// nothing is the worst kind of instrument, so this reads the disk rather than the exit code it
 /// saw a minute ago.
+///
+/// **And *close this* is the code now rather than only the sentence.** Measured by pressing the
+/// button: Epoch opened and setup stayed behind it, because the frontend calls this and returns.
+/// The doc had said so since it was written, which made it a promise with nothing keeping it —
+/// a comment that summarises code is a claim with no test attached, and this one was already
+/// false. Setup has one job and it is finished the moment Epoch is on screen.
+///
+/// **Only on success.** A refusal has to stay on screen to be read; exiting either way would
+/// close the window over the one sentence explaining why nothing happened.
 #[tauri::command]
-fn open_epoch() -> Result<(), String> {
-    let at = std::env::var_os("ProgramFiles")
-        .map(std::path::PathBuf::from)
-        .map(|base| base.join("Epoch").join("epoch-tauri.exe"))
+fn open_epoch(app: tauri::AppHandle) -> Result<(), String> {
+    let at = epoch_lives_at()
         .filter(|it| it.is_file())
         .ok_or("Epoch is not where the installer puts it. Open it from the Start menu.")?;
     std::process::Command::new(at)
         .spawn()
-        .map(|_| ())
-        .map_err(|why| format!("Epoch would not open: {why}"))
+        .map_err(|why| format!("Epoch would not open: {why}"))?;
+    app.exit(0);
+    Ok(())
 }
 
 fn main() {
@@ -235,17 +264,22 @@ mod tests {
     /// a weak one at build time: a `build.rs` that found the wrong file would answer *yes* and
     /// this setup would go out carrying something that is not an Epoch.
     ///
-    /// An MSI is an OLE compound file and begins with a fixed eight bytes. Cheap, exact, and it
-    /// is the shape rather than the name — the file this is copied from is chosen by extension,
-    /// which is a claim (ADR-0024).
+    /// A Windows executable begins `MZ`. Cheap, exact, and it is the shape rather than the name —
+    /// the file this is copied from is chosen by extension, which is a claim (ADR-0024).
     ///
-    /// **Empty is a real state and is not a failure.** A fresh clone has no MSI until the app has
-    /// been built once, and `build.rs` writes a placeholder on purpose so the workspace still
-    /// compiles. It says so out loud rather than passing quietly, because a test that reports
-    /// nothing and a test that measured nothing look identical in a green run.
+    /// **It used to assert the OLE compound header, because what was carried used to be the MSI.**
+    /// That artefact installs perMachine and could not be installed by an ordinary user at all;
+    /// the header check was correct about the file and the file was the wrong one. A test that
+    /// pins the format is only as good as the decision about which format belongs here, which is
+    /// why the reason lives in `build.rs` beside the change rather than in this assertion.
+    ///
+    /// **Empty is a real state and is not a failure.** A fresh clone has no installer until the
+    /// app has been built once, and `build.rs` writes a placeholder on purpose so the workspace
+    /// still compiles. It says so out loud rather than passing quietly, because a test that
+    /// reports nothing and a test that measured nothing look identical in a green run.
     #[test]
     fn what_is_carried_is_an_installer_or_nothing_at_all() {
-        const COMPOUND_FILE: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+        const EXECUTABLE: &[u8; 2] = b"MZ";
 
         if EPOCH.is_empty() {
             eprintln!(
@@ -255,9 +289,32 @@ mod tests {
             return;
         }
         assert!(
-            EPOCH.starts_with(&COMPOUND_FILE),
-            "carried {} bytes that do not begin like an installer",
+            EPOCH.starts_with(EXECUTABLE),
+            "carried {} bytes that do not begin like a Windows installer",
             EPOCH.len()
+        );
+    }
+
+    /// **Per user, and the compiler is not what keeps that true — this is.**
+    ///
+    /// Both the install step and the OPEN button read `epoch_lives_at`, so the one thing that
+    /// could quietly revert this change is somebody restoring a `ProgramFiles` path in either of
+    /// them. That is exactly the failure that shipped: a setup looking in `Program Files` for a
+    /// program every other part of Epoch installs into `%LOCALAPPDATA%`.
+    #[test]
+    fn epoch_is_looked_for_where_a_user_may_actually_install_it() {
+        let Some(at) = epoch_lives_at() else {
+            eprintln!("%LOCALAPPDATA% is unset on this machine; nothing to check");
+            return;
+        };
+        let said = at.display().to_string();
+        assert!(
+            said.ends_with("Epoch\\epoch-tauri.exe") || said.ends_with("Epoch/epoch-tauri.exe"),
+            "the installed program is not where the installer puts it: {said}"
+        );
+        assert!(
+            !said.contains("Program Files"),
+            "a per-user install must not be looked for in Program Files: {said}"
         );
     }
 }
