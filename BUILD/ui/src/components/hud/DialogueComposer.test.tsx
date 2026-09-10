@@ -683,7 +683,7 @@ describe("what is said about a language nobody chose", () => {
     expect(said).toContain("41%");
     expect(said).toContain("Settings");
     // The language by name rather than by code: `el` is not something anybody reads as Greek.
-    expect(said).not.toMatch(/Heard as el/);
+    expect(said).not.toMatch(/Heard as el\b/);
   });
 
   it("cannot be taken down by a code Intl refuses", () => {
