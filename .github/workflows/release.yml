@@ -266,31 +266,82 @@ jobs:
           find release -type f | sort
 
           cat > notes.md <<'NOTES'
-          Windows. Unsigned, and that is a decision rather than an omission — a certificate is a
-          recurring cost and buys *who made this*, which is the half a stranger can least act on.
-          What replaces it is free and checkable.
+          **An AI operating system that is a place, not a dashboard.**
 
-          **Which file.** `epoch-setup.exe` is the one to download: it carries Epoch inside it and
-          offers the extras this machine does not have yet. `Epoch_*_x64-setup.exe` is the plain
-          installer, for somebody who wants only the application.
+          Most AI tools are a text box with a history. Epoch is a **world you enter**. Your crew are
+          characters who live somewhere — they have faces, routines and a place they stand in. When one of
+          them is thinking you can see where, and when nothing is running the world is quiet, because that
+          quiet is true rather than a spinner.
 
-          **Checking what you have.**
+          Underneath it is an engine: local models, hosted models, coding agents, image, video, sound and
+          3D generation, MCP servers, and the other machines on your network — all behind one way of
+          working. There is no Docker to learn, no YAML to write and no node graph to wire.
+
+          > **North star: AI should never be harder to use than a video game.**
+
+          ## What is in this first release
+
+          You do not start in a chat. You start on the bridge of a docked ship: nine decks, each answering
+          one question about your setup, all of it configured in the product with no file to edit.
+
+          | | |
+          |---|---|
+          | **WORLDS** | A project with a place attached — a map, buildings, roads and a crew. Each World holds a project root (your real codebase, read the way a coding agent reads it) and a knowledge folder, both chosen by you and never guessed |
+          | **CHARACTERS** | A character is a portable asset, not a row in a settings table: name, face, sprite, role, prompt, parameters and which Worlds they live in. Their brain may be a local model, Claude Code, Codex, Gemini CLI, or a model on another machine — and changing it does not change who they are |
+          | **CREATIONS** | Pictures, video, sound and 3D through ComfyUI, here or on a machine you paired. Styles are yours to name; the library is one folder Epoch adds as a search path and **never moves, copies or renames** a file you already had |
+          | **MODELS** | Every model you have, with numbers Epoch measured rather than guessed: tokens per second, the context it was measured at, and the memory it actually took. `BENCHMARK & OPTIMIZE` runs a real timed search and writes the winner as a profile |
+          | **CONNECTIONS** | Ollama, llama.cpp and LM Studio found and configured without asking twice; any server speaking the OpenAI API at any address; hosted models with a key you supply. Coding agents sign in through **their own** window — Epoch opens the door and never holds the key |
+          | **MACHINES** | Pair another computer and its models become brains your crew can use. A code, typed once, spent the moment it works. No account and no cloud |
+          | **MCP** | Connect any MCP server and its tools reach your crew. Epoch also *is* one: an agent connected to it gains your crew, the Quest and its Chronicle, this World's knowledge, and the servers already configured here |
+          | **WORKSHOP** | Search, weigh against this machine, install — models, checkpoints and LoRAs, 175 Piper voices, MCP servers |
+          | **SETTINGS** | Your machine, grouped by what each thing actually affects |
+
+          **Quests own the work.** You do not delegate a task to an AI; you start a Quest, and the crew
+          collaborate to finish it. History is built from evidence rather than narration — a Quest that
+          produced nothing says so, and a failure is remembered as the failure it was.
+
+          **Every reading is measured or visibly empty.** A panel with nothing behind it keeps its frame,
+          loses its light and says which subsystem will light it up. A gauge nobody can explain is worse
+          than no gauge.
+
+          ## What is not here
+
+          Windows only. The code is cross-platform and the release matrix is not; macOS and Linux builds
+          are not published yet, and that is stated rather than promised.
+
+          Epoch installs **per user**, into `%LOCALAPPDATA%\Epoch`, and keeps its vault and model library
+          in `%APPDATA%\Epoch`. Uninstalling leaves both alone unless you tick the box that says otherwise.
+
+          ## Which file
+
+          | | |
+          |---|---|
+          | **`epoch-setup.exe`** | The one to download. It carries Epoch inside it and offers what this machine does not have yet. Decline all of it and Epoch still opens, and says what is missing |
+          | `Epoch_0.1.0_x64-setup.exe` | The plain installer, for somebody who wants only the application |
+
+          ## Checking what you have
+
+          Epoch is **unsigned**, and that is a decision rather than an omission: a certificate is a
+          recurring cost and it buys *who made this*, which is the half a stranger can least act on. The
+          half you can check is free and ships with every release.
 
           ```
           sha256sum -c SHA256SUMS
           gh attestation verify epoch-setup.exe --repo OWNER_REPO
           ```
 
-          The first says the file is the one this job produced. The second says it came from this
-          commit of this repository, built on GitHub's runners, signed through a public
-          transparency log.
+          The first says the file you have is the file this job produced. The second says it came from this
+          commit of this repository, built on GitHub's own runners and signed through a public transparency
+          log — so a tampered installer cannot claim to have come from here, whatever it is called and
+          wherever it was downloaded.
 
-          **Neither of them stops SmartScreen**, and nothing here pretends otherwise: only
-          reputation or an EV certificate does. Windows will warn; *More info* then *Run anyway*
-          is the way past it, and the two commands above are how you decide whether you want to.
+          **Neither of them stops SmartScreen**, and nothing here pretends otherwise: only reputation or an
+          EV certificate does. Windows will warn about an unrecognised app; *More info* then *Run anyway* is
+          the way past it, and the two commands above are how you decide whether you want to.
 
-          **What is inside it.** The `.cdx.json` files are CycloneDX parts lists — one for the
-          application, one for setup, one for the frontend.
+          The `.cdx.json` files are CycloneDX parts lists — one for the application, one for setup, one for
+          the frontend. They exist for the day an advisory lands on something in the tree and somebody has
+          to know whether this build contained it.
           NOTES
           sed -i "s|OWNER_REPO|${GITHUB_REPOSITORY}|" notes.md
 
