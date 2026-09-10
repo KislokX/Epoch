@@ -279,7 +279,7 @@ jobs:
 
           > **North star: AI should never be harder to use than a video game.**
 
-          ## What is in this first release
+          ## What Epoch does
 
           You do not start in a chat. You start on the bridge of a docked ship: nine decks, each answering
           one question about your setup, all of it configured in the product with no file to edit.
@@ -317,7 +317,7 @@ jobs:
           | | |
           |---|---|
           | **`epoch-setup.exe`** | The one to download. It carries Epoch inside it and offers what this machine does not have yet. Decline all of it and Epoch still opens, and says what is missing |
-          | `Epoch_0.1.0_x64-setup.exe` | The plain installer, for somebody who wants only the application |
+          | `Epoch_<version>_x64-setup.exe` | The plain installer, for somebody who wants only the application |
 
           ## Checking what you have
 

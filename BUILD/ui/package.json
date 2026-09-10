@@ -1,7 +1,7 @@
 {
   "name": "epoch-ui",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Epoch presentation layer. React renders the World; all logic lives in the engine (ADR-0003).",
   "scripts": {

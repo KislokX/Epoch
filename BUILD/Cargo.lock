@@ -1778,7 +1778,7 @@ checksum = "5c4fbe202b6578d3d56428fa185cdf114a05e49da05f477b3c7f0fbb221f1862"
 
 [[package]]
 name = "epoch-assets"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1788,7 +1788,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "epoch-assets",
@@ -1812,7 +1812,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-kernel"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1820,7 +1820,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-models"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "epoch-assets",
@@ -1832,7 +1832,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-secrets"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
  "windows-sys 0.59.0",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-setup"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "epoch-engine",
  "serde",
@@ -1851,7 +1851,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-tauri"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "epoch-engine",
  "epoch-kernel",
@@ -1871,7 +1871,7 @@ dependencies = [
 
 [[package]]
 name = "epoch-wire"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rcgen",
  "rustls",
