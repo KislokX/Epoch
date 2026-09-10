@@ -112,14 +112,39 @@ jobs:
       # hook, the vault under `%APPDATA%`. Its uninstall has no delete-app-data option and never
       # runs that hook, so publishing it offered a second way in that nothing here has measured.
       # One installation path, and it is the one the tests are about.
+      #
+      # **The names written here are the names the person checking will have.** A Release page is
+      # flat -- `gh release create` uploads every asset under its basename -- while these files
+      # are built two directories apart, so `sha256sum` run over the tree wrote
+      # `./nsis/Epoch_0.1.0_x64-setup.exe`. That path resolves to nothing next to a download.
+      #
+      # Measured on the v0.1.0 draft, downloading it the way the README tells somebody to:
+      # `./epoch-setup.exe: OK`, then `./nsis/...: FAILED open or read`, exit 1. Both files were
+      # byte-for-byte correct; the instrument was the broken part, and it failed in the direction
+      # that reads as tampering -- which is the worst way for the thing that replaces a signature
+      # to be wrong.
+      #
+      # So each hash is taken from inside its own directory, and a collision between two files
+      # that share a basename stops the build rather than publishing two lines nobody can tell
+      # apart.
       - name: What this job produced
         shell: bash
         run: |
           set -euo pipefail
           out=BUILD/target/release/bundle
           cp BUILD/target/release/epoch-setup.exe "$out/"
-          (cd "$out" && find . -type f -name '*.exe' -print0 |
-            xargs -0 -r sha256sum | tee SHA256SUMS)
+          (
+            cd "$out"
+            find . -type f -name '*.exe' | sort > /tmp/exes
+            if [ "$(wc -l < /tmp/exes)" -ne "$(xargs -n1 basename < /tmp/exes | sort -u | wc -l)" ]; then
+              echo "two artefacts share a basename; the Release page cannot hold both" >&2
+              exit 1
+            fi
+            : > SHA256SUMS
+            while read -r f; do
+              ( cd "$(dirname "$f")" && sha256sum "$(basename "$f")" )
+            done < /tmp/exes >> SHA256SUMS
+          )
           cat "$out/SHA256SUMS"
 
 
