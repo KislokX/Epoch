@@ -47,17 +47,50 @@ fn main() {
     //
     // `OUT_DIR` is `<target>/<profile>/build/<crate>-<hash>/out`, so three levels up is the
     // profile directory the bundle sits beside. One source for the answer instead of two.
-    let from = out
+    // **Every installer in the folder, not the first one.** Tauri never cleans `bundle/nsis`, so
+    // after a version bump it holds the old installer beside the new one — and `read_dir` order
+    // put `Epoch_0.1.0_x64-setup.exe` first. Measured 2026-09-10: a setup built as 0.1.1 carried
+    // the 0.1.0 installer byte for byte, and would have "updated" somebody to the version they
+    // already had while reporting success. CI never sees it, because a runner starts empty.
+    //
+    // So the one carried is the one built for *this* version, and anything else is refused
+    // rather than guessed at: two candidates for one version, or candidates none of which is this
+    // version, is a misbuild, and a setup carrying the wrong Epoch is worse than no setup.
+    let version = std::env::var("CARGO_PKG_VERSION").expect("cargo sets CARGO_PKG_VERSION");
+    let candidates: Vec<PathBuf> = out
         .ancestors()
         .nth(3)
         .map(|profile| profile.join("bundle/nsis"))
         .and_then(|at| at.canonicalize().ok())
-        .and_then(|at| {
-            std::fs::read_dir(at).ok()?.flatten().find_map(|entry| {
-                let path = entry.path();
-                (path.extension().is_some_and(|it| it == "exe")).then_some(path)
-            })
-        });
+        .and_then(|at| std::fs::read_dir(at).ok())
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.extension().is_some_and(|it| it == "exe"))
+                .collect()
+        })
+        .unwrap_or_default();
+    let this_version: Vec<&PathBuf> = candidates
+        .iter()
+        .filter(|path| {
+            path.file_name()
+                .and_then(|it| it.to_str())
+                .is_some_and(|name| name.contains(&format!("_{version}_")))
+        })
+        .collect();
+    let from = match (candidates.is_empty(), this_version.as_slice()) {
+        (true, _) => None,
+        (false, [one]) => Some((*one).clone()),
+        (false, _) => panic!(
+            "bundle/nsis holds {} installer(s) and {} of them are Epoch {version}: {:?}. \
+             This setup cannot know which Epoch it is meant to carry. Remove the stale ones, \
+             or rebuild the app at this version first.",
+            candidates.len(),
+            this_version.len(),
+            candidates
+        ),
+    };
 
     match from {
         Some(installer) => {
