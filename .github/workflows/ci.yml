@@ -22,16 +22,25 @@
 # It does not run the frontend: TypeScript does not have an operating system, and running `npm
 # test` twice would cost minutes to learn nothing.
 #
-# ## Both programs, every time
+# ## The other program, and where its half of the rule went
 #
 # EpochServices lives in its own repository now (owner's decision, 2026-09-08) and is not built
 # here. **The two-surfaces rule did not go with it, and this is the part worth reading:** it still
-# shares five crates with Epoch, by copy rather than by path, so *ask whether EpochServices needs
-# this too* is now a question nothing in this file can answer. Its own CI is the other half, and
-# a change to a shared crate has to reach it. The bill
-# arrives on the day somebody needs to deploy to the other machine rather than the day it broke.
-# It has been paid twice. So both are checked in the same job, and a shared crate that only
-# compiles on one side fails here.
+# shares five crates with Epoch, so *ask whether EpochServices needs this too* is a question
+# nothing in this file can answer. The bill arrives on the day somebody needs to deploy to the
+# other machine rather than the day it broke, and it has been paid twice.
+#
+# Since 2026-09-10 it reaches those crates **by revision** from this repository:
+# `github.com/KislokX/Epoch-Services`, pinned in its own `Cargo.toml`. A change here therefore
+# reaches it when somebody bumps that revision, deliberately — and two things carry the rule
+# across the gap: its own CI, which gates on Windows, macOS and Linux; and a `paths` override a
+# developer holding both checkouts adds locally, so a shared crate that compiles on only one side
+# still fails on the day it is written rather than the day it is needed.
+#
+# **This paragraph claimed "both are checked in the same job" for two days after that stopped
+# being true** — in the file whose whole job is catching exactly that. A comment that summarises
+# code is a claim with no test attached, and the further it sits from what it describes the
+# longer it survives after becoming false.
 #
 # ## Actions are pinned to commits
 #
