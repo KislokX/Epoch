@@ -98,13 +98,15 @@ pub fn artwork_of(characters_dir: &Path, id: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-/// The World Epoch ships, and the one it will not remove.
-///
-/// **Not a rule about ownership — a rule about what other Worlds are built from.** The default
-/// pack is the base every other World starts from, so removing it would break Worlds that have
-/// nothing to do with it. It can be *hidden* from the list instead, which is the thing somebody
-/// actually wants when they say they are done looking at it (owner, 2026-08-19).
-pub const SHIPPED: &str = "default";
+// **`SHIPPED` was here, and it is gone rather than corrected.** It was `"default"` — a typed id
+// sparing the World Epoch ships from removal — and for two days after `default` stopped
+// shipping it spared a World that did not exist while `archipelago`, the one that did, went
+// unguarded. Measured through `world_files`: removing the Archipelago planned to delete its
+// `pack.toml` from the program folder.
+//
+// Changing the string would have been the same bug waiting for the next rename. What replaced it
+// is structural: a World somebody made keeps its pack in `vault/worlds/<id>/`, the shipped folder
+// is never handed to this module, and so nothing here can plan to delete from it.
 
 /// Every file and folder that belongs to one World, by name.
 ///
@@ -113,8 +115,8 @@ pub const SHIPPED: &str = "default";
 ///
 /// | where | what happens |
 /// |---|---|
-/// | `packs/<id>/` | deleted, unless it is the shipped base |
-/// | `vault/worlds/<id>/` | deleted — its map, its Quests, the art imported into it |
+/// | `vault/worlds/<id>/` | deleted — its pack if somebody made it, its map, its Quests, its art |
+/// | the shipped folder | **never** — it is not an argument, so it cannot be named |
 /// | `vault/libraries.toml` | the **entry** goes; the folder it names is never touched |
 /// | `vault/projects.toml` | the entry goes; the source tree is never touched |
 /// | `vault/trust.toml` | its mode and every policy scoped to it — **security, not tidiness** |
@@ -125,11 +127,8 @@ pub const SHIPPED: &str = "default";
 /// The library is the one to read twice. Epoch wrote notes into `<library>/Epoch/`, and they are
 /// **still not removed**: they sit inside a vault the user may have linked them from, so
 /// deleting a World removes Epoch's copy of the work and never the user's notes about it.
-pub fn world_files(packs: &Path, vault: &Path, id: &str) -> Vec<PathBuf> {
+pub fn world_files(vault: &Path, id: &str) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    if id != SHIPPED {
-        collect(&packs.join(id), &mut files);
-    }
     collect(&vault.join("worlds").join(id), &mut files);
     files
 }
@@ -260,35 +259,36 @@ mod tests {
     }
 
     #[test]
-    fn a_worlds_files_are_its_own_and_the_shipped_base_keeps_its_pack() {
+    fn a_world_you_made_goes_whole_and_the_shipped_folder_is_never_named() {
         let root = dir();
         let packs = root.join("packs");
         let vault = root.join("vault");
-        for world in ["default", "mine"] {
-            std::fs::create_dir_all(packs.join(world).join("assets")).unwrap();
-            std::fs::write(packs.join(world).join("pack.toml"), b"x").unwrap();
-            std::fs::write(packs.join(world).join("assets").join("art.png"), b"x").unwrap();
-            std::fs::create_dir_all(vault.join("worlds").join(world).join("quests")).unwrap();
-            std::fs::write(vault.join("worlds").join(world).join("places.toml"), b"x").unwrap();
-        }
+        // What shipped, beside the binary. And what somebody made, in the vault, pack and all.
+        std::fs::create_dir_all(packs.join("archipelago")).unwrap();
+        std::fs::write(packs.join("archipelago").join("pack.toml"), b"x").unwrap();
+        let made = vault.join("worlds").join("mine");
+        std::fs::create_dir_all(made.join("assets")).unwrap();
+        std::fs::create_dir_all(made.join("quests")).unwrap();
+        std::fs::write(made.join("pack.toml"), b"x").unwrap();
+        std::fs::write(made.join("assets").join("art.png"), b"x").unwrap();
+        std::fs::write(made.join("places.toml"), b"x").unwrap();
+        let shipped_half = vault.join("worlds").join("archipelago");
+        std::fs::create_dir_all(&shipped_half).unwrap();
+        std::fs::write(shipped_half.join("places.toml"), b"x").unwrap();
 
-        // A World the user made: its pack goes with it.
-        let mine = world_files(&packs, &vault, "mine");
+        let mine = world_files(&vault, "mine");
         assert!(mine.iter().any(|p| p.ends_with("pack.toml")));
         assert!(mine.iter().any(|p| p.ends_with("art.png")));
         assert!(mine.iter().any(|p| p.ends_with("places.toml")));
 
-        // **The shipped base keeps its pack.** Every other World is built from it, so removing
-        // it would break Worlds that have nothing to do with it.
-        let shipped = world_files(&packs, &vault, SHIPPED);
+        // **The shipped World's pack is not in the plan, and it cannot be.** Its map is the
+        // user's and goes; the pack is the installer's and is put back on every update.
+        let shipped = world_files(&vault, "archipelago");
         assert!(
-            !shipped.iter().any(|p| p.ends_with("pack.toml")),
-            "the base pack is not removable: {shipped:?}"
+            shipped.iter().all(|p| !p.starts_with(&packs)),
+            "nothing under the shipped folder is ever named: {shipped:?}"
         );
-        assert!(
-            shipped.iter().any(|p| p.ends_with("places.toml")),
-            "but what the user put in it still goes"
-        );
+        assert!(shipped.iter().any(|p| p.ends_with("places.toml")));
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -312,7 +312,7 @@ mod tests {
 
         let plan = Removal {
             what: "Mine".into(),
-            files: world_files(&packs, &vault, "mine"),
+            files: world_files(&vault, "mine"),
             ..Removal::default()
         };
         assert!(plan.carry_out_with_dirs().is_empty());
@@ -340,7 +340,7 @@ mod tests {
 
         let plan = Removal {
             what: "Mine".into(),
-            files: world_files(&root.join("packs"), &root.join("vault"), "mine"),
+            files: world_files(&root.join("vault"), "mine"),
             ..Removal::default()
         };
         // Something arrives after the plan was made — the shape of a race, and of a user with

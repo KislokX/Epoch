@@ -1006,7 +1006,13 @@ impl WorldPack {
     ///
     /// `CONTENT_PHILOSOPHY.md`'s hard rule is enforced at load: a manifest without it fails.
     /// So one is written now, saying what is true — the contents are the user's own.
-    pub fn create(dir: &Path, name: &str) -> Result<String, PackError> {
+    ///
+    /// ## `taken` is the other folder a World can be in
+    ///
+    /// Worlds live in two places — the ones that shipped beside the binary and the ones people
+    /// made in the vault — and one id must not name two Worlds. So an id already used in either
+    /// is skipped, exactly as a second `Home` becomes `home-2`.
+    pub fn create(dir: &Path, name: &str, taken: &Path) -> Result<String, PackError> {
         let name = name.trim();
         let refuse = |id: &str, reason: &str| PackError::Rename {
             id: id.to_string(),
@@ -1055,7 +1061,7 @@ impl WorldPack {
         // the same rule Character Pack import follows (ADR-0026).
         let mut id = stem.clone();
         let mut n = 2;
-        while dir.join(&id).exists() {
+        while dir.join(&id).exists() || taken.join(&id).exists() {
             id = format!("{stem}-{n}");
             n += 1;
         }
@@ -1123,6 +1129,44 @@ impl WorldPack {
             }
         }
 
+        found.sort_by(|a, b| a.id.cmp(&b.id));
+        problems.sort();
+        (found, problems)
+    }
+
+    /// Every World on this machine: the ones that shipped, and the ones somebody made.
+    ///
+    /// **Two folders, one list.** `shipped` is beside the binary and belongs to the installer;
+    /// `mine` is `vault/worlds/` and belongs to the user. A folder in `mine` with no
+    /// `pack.toml` is the vault half of a shipped World — its map and its Quests — and not a
+    /// World of its own, which `discover` already skips.
+    ///
+    /// **A vault with no Worlds yet is not a problem.** `discover` reports a folder it cannot
+    /// read, which is right for the shipped one; a fresh install has no `vault/worlds/` at all,
+    /// and a Launcher reading *cannot read Worlds* on its first launch would be inventing a
+    /// fault.
+    ///
+    /// **One id, one World.** If both folders hold the same id the shipped one is kept and the
+    /// other is named, rather than one silently hiding the other. `create` makes this
+    /// unreachable for a new World; it is here for a folder somebody copied in by hand.
+    pub fn discover_all(shipped: &Path, mine: &Path) -> (Vec<WorldPack>, Vec<String>) {
+        let (mut found, mut problems) = Self::discover(shipped);
+        if mine.is_dir() {
+            let (theirs, their_problems) = Self::discover(mine);
+            problems.extend(their_problems);
+            for pack in theirs {
+                if let Some(kept) = found.iter().find(|p| p.id == pack.id) {
+                    problems.push(format!(
+                        "two Worlds have the id '{}': {} is used, and {} is not",
+                        pack.id,
+                        kept.dir().display(),
+                        pack.dir().display()
+                    ));
+                } else {
+                    found.push(pack);
+                }
+            }
+        }
         found.sort_by(|a, b| a.id.cmp(&b.id));
         problems.sort();
         (found, problems)
@@ -1681,7 +1725,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
-        let id = WorldPack::create(&dir, "Bram's Forge").unwrap();
+        let id = WorldPack::create(&dir, "Bram's Forge", &dir.join("shipped")).unwrap();
         assert_eq!(id, "bram-s-forge", "an identity every filesystem can hold");
 
         let pack = WorldPack::load(&dir.join(&id).join("pack.toml")).unwrap();
@@ -1703,8 +1747,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
-        let first = WorldPack::create(&dir, "Home").unwrap();
-        let second = WorldPack::create(&dir, "Home").unwrap();
+        let first = WorldPack::create(&dir, "Home", &dir.join("shipped")).unwrap();
+        let second = WorldPack::create(&dir, "Home", &dir.join("shipped")).unwrap();
 
         assert_ne!(first, second);
         assert!(dir.join(&first).join("pack.toml").is_file());
@@ -1716,7 +1760,75 @@ mod tests {
     #[test]
     fn a_world_cannot_be_created_without_a_name() {
         let dir = std::env::temp_dir().join(format!("epoch-noname-{}", std::process::id()));
-        assert!(WorldPack::create(&dir, "   ").is_err());
+        assert!(WorldPack::create(&dir, "   ", &dir).is_err());
+    }
+
+    fn two_folders(who: &str) -> (PathBuf, PathBuf) {
+        let root = std::env::temp_dir().join(format!("epoch-two-{who}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let shipped = root.join("packs");
+        std::fs::create_dir_all(&shipped).unwrap();
+        (shipped, root.join("vault").join("worlds"))
+    }
+
+    #[test]
+    fn every_world_is_found_whichever_folder_it_lives_in() {
+        let (shipped, mine) = two_folders("found");
+        WorldPack::create(&shipped, "Archipelago", &mine).unwrap();
+        WorldPack::create(&mine, "Home", &shipped).unwrap();
+        // The vault half of the shipped World: its map, and no manifest. Not a World.
+        std::fs::create_dir_all(mine.join("archipelago")).unwrap();
+        std::fs::write(mine.join("archipelago").join("places.toml"), "").unwrap();
+
+        let (worlds, problems) = WorldPack::discover_all(&shipped, &mine);
+        let ids: Vec<&str> = worlds.iter().map(|w| w.id.as_str()).collect();
+        assert_eq!(ids, ["archipelago", "home"]);
+        assert!(problems.is_empty(), "{problems:?}");
+        let _ = std::fs::remove_dir_all(shipped.parent().unwrap());
+    }
+
+    #[test]
+    fn a_vault_with_no_worlds_yet_is_not_a_fault() {
+        // A fresh install has no `vault/worlds/`. A Launcher that said it could not read Worlds
+        // on the first launch would be reporting a fault nobody has.
+        let (shipped, mine) = two_folders("fresh");
+        WorldPack::create(&shipped, "Archipelago", &mine).unwrap();
+
+        let (worlds, problems) = WorldPack::discover_all(&shipped, &mine);
+        assert_eq!(worlds.len(), 1);
+        assert!(problems.is_empty(), "{problems:?}");
+        let _ = std::fs::remove_dir_all(shipped.parent().unwrap());
+    }
+
+    #[test]
+    fn a_new_world_never_takes_an_id_the_other_folder_already_has() {
+        // One id, one World. Calling yours "Archipelago" gets you `archipelago-2`, not a World
+        // that hides the one Epoch shipped, or is hidden by it.
+        let (shipped, mine) = two_folders("taken");
+        WorldPack::create(&shipped, "Archipelago", &mine).unwrap();
+
+        let yours = WorldPack::create(&mine, "Archipelago", &shipped).unwrap();
+        assert_eq!(yours, "archipelago-2");
+        let _ = std::fs::remove_dir_all(shipped.parent().unwrap());
+    }
+
+    #[test]
+    fn two_worlds_with_one_id_keep_the_shipped_one_and_say_so() {
+        let (shipped, mine) = two_folders("twice");
+        // Only reachable by hand: `create` refuses it.
+        WorldPack::create(&shipped, "Archipelago", &mine).unwrap();
+        WorldPack::create(&mine, "Archipelago", &mine.join("elsewhere")).unwrap();
+
+        let (worlds, problems) = WorldPack::discover_all(&shipped, &mine);
+        assert_eq!(worlds.len(), 1);
+        assert!(worlds[0].dir().starts_with(&shipped));
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.contains("two Worlds have the id 'archipelago'")),
+            "{problems:?}"
+        );
+        let _ = std::fs::remove_dir_all(shipped.parent().unwrap());
     }
 }
 

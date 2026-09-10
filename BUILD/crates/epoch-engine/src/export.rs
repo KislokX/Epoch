@@ -17,7 +17,7 @@
 //!
 //! | where | what | exported |
 //! |---|---|---|
-//! | `packs/<id>/` | the authored pack — manifest, artwork | **yes**, it is the World |
+//! | `packs/<id>/`, or `vault/worlds/<id>/` for a World somebody made | the authored pack — manifest, artwork | **yes**, it is the World |
 //! | `vault/worlds/<id>/places.toml` | where the user put the buildings | **yes**, it is the map |
 //! | `vault/worlds/<id>/*.png` | artwork the user imported (ADR-0024) | **yes** |
 //! | `vault/worlds/<id>/quests/` | their conversations | **no** |
@@ -103,9 +103,9 @@ const PRIVATE: [&str; 3] = ["quests", "quests.legacy-v1.json", "undo.json"];
 
 /// Work out what exporting this World would carry.
 ///
-/// `pack_dir` is `packs/<id>`, `vault_world` is `vault/worlds/<id>`, and either may be absent:
-/// a World authored entirely in the vault has no pack folder, and one nobody has edited has no
-/// vault folder. Both being absent is a World that does not exist, which is a problem rather
+/// `pack_dir` is wherever the World's pack is — `packs/<id>` beside the binary if it shipped, and
+/// the very same folder as `vault_world` if somebody made it. `vault_world` is
+/// `vault/worlds/<id>` and may be absent: a World nobody has edited has no vault folder. Both being absent is a World that does not exist, which is a problem rather
 /// than an empty export.
 pub fn plan(
     what: &str,
@@ -119,7 +119,14 @@ pub fn plan(
     let mut problems = Vec::new();
 
     // 1. The authored pack, whole. It is the World: manifest, artwork, declared Places.
-    gather(pack_dir, pack_dir, &mut carries, &|_| true);
+    //
+    // **Unless the pack *is* the vault folder, and then this pass must not run at all.** A World
+    // somebody made keeps its pack in `vault/worlds/<id>/`, beside its Quests. Gathered whole,
+    // that folder would put every conversation in the archive — the one thing an export exists
+    // never to send. The filtered pass below already carries the manifest and the art.
+    if !same_folder(pack_dir, vault_world) {
+        gather(pack_dir, pack_dir, &mut carries, &|_| true);
+    }
 
     // 2. The user's own map and the artwork they imported into it — but not what they did there.
     let mut from_the_vault = Vec::new();
@@ -283,9 +290,42 @@ fn gather(root: &Path, dir: &Path, into: &mut Vec<Carried>, keep: &dyn Fn(&str) 
     }
 }
 
+/// Whether two paths are one folder: as written first, then as the filesystem resolves them, so
+/// a `\\?\` spelling of `vault/worlds/x` is not mistaken for a second folder.
+fn same_folder(a: &Path, b: &Path) -> bool {
+    a == b || matches!((a.canonicalize(), b.canonicalize()), (Ok(x), Ok(y)) if x == y)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_world_made_in_the_vault_exports_its_map_and_never_its_conversations() {
+        // A privacy regression, and the reason `same_folder` exists. A World somebody made keeps
+        // its pack in `vault/worlds/<id>/`, beside its Quests, so the pack folder and the vault
+        // folder are one folder — and gathering "the pack, whole" would archive every
+        // conversation in it.
+        let root = std::env::temp_dir().join(format!("epoch-export-made-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let world = root.join("vault").join("worlds").join("mine");
+        std::fs::create_dir_all(world.join("quests")).unwrap();
+        std::fs::write(world.join("pack.toml"), b"[pack]").unwrap();
+        std::fs::write(world.join("places.toml"), b"[[place]]").unwrap();
+        std::fs::write(world.join("quests").join("q-1.json"), b"what was said").unwrap();
+        std::fs::write(world.join("undo.json"), b"[]").unwrap();
+
+        let planned = plan("Mine", &world, &world, root.join("out"), true);
+        let to: Vec<&str> = planned.carries.iter().map(|c| c.to.as_str()).collect();
+
+        assert_eq!(
+            to,
+            ["pack.toml", "places.toml"],
+            "each exactly once, and nothing private"
+        );
+        assert!(planned.allowed());
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     /// A World on disk: an authored pack, and what the user did in it.
     ///

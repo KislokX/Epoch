@@ -81,7 +81,9 @@ fn a_world_takes_its_own_files_and_nothing_of_yours() {
     let packs = sand.at("packs");
     write(&vault.join("worlds/test/map.toml"), "places = []");
     write(&vault.join("worlds/test/chronicles/one.json"), "{}");
-    write(&packs.join("test/manifest.toml"), "name = 'Test'");
+    write(&vault.join("worlds/test/pack.toml"), "name = 'Test'");
+    // What shipped, beside the binary. Never named by removing a different World.
+    write(&packs.join("archipelago/pack.toml"), "name = 'Archipelago'");
     // Another World, to prove the removal is about *one* of them.
     write(&vault.join("worlds/keeper/map.toml"), "places = []");
 
@@ -94,7 +96,7 @@ fn a_world_takes_its_own_files_and_nothing_of_yours() {
     // ---- the plan, exactly as the shell builds it.
     let plan = Removal {
         what: "test".to_owned(),
-        files: world_files(&packs, &vault, "test"),
+        files: world_files(&vault, "test"),
         ..Default::default()
     };
 
@@ -116,7 +118,10 @@ fn a_world_takes_its_own_files_and_nothing_of_yours() {
 
     // ---- Epoch's own files for that World are gone.
     assert!(!vault.join("worlds/test").exists(), "the World's folder");
-    assert!(!packs.join("test").exists(), "the World's pack");
+    assert!(
+        packs.join("archipelago/pack.toml").exists(),
+        "the shipped World is not touched by removing another"
+    );
 
     // ---- and everything the user made is untouched, byte for byte.
     assert_eq!(
@@ -164,27 +169,28 @@ fn forgetting_where_a_world_looked_does_not_follow_the_pointer() {
 }
 
 #[test]
-fn the_shipped_world_keeps_its_pack_because_everything_is_built_from_it() {
-    // Removing the default World removes its conversations and its map; the pack stays, because
-    // every other World is built from it. A plan that named it would delete the thing new Worlds
-    // are made of.
+fn the_shipped_folder_is_never_named_because_it_is_never_given() {
+    // It was `world_files(&packs, &vault, id)`, with a typed id deciding which pack to spare —
+    // `"default"`, for two days after `default` stopped shipping. The guard is structural now: a
+    // World somebody made keeps its pack in the vault, and the shipped folder is not an argument,
+    // so there is nothing a stale name could let through.
     let sand = Sandbox::new("shipped");
     let vault = sand.at("vault");
     let packs = sand.at("packs");
-    write(&packs.join("default/manifest.toml"), "name = 'Default'");
-    write(&vault.join("worlds/default/map.toml"), "places = []");
+    write(&packs.join("archipelago/pack.toml"), "name = 'Archipelago'");
+    write(&vault.join("worlds/archipelago/places.toml"), "places = []");
 
-    let files = world_files(&packs, &vault, "default");
+    let files = world_files(&vault, "archipelago");
     for named in &files {
         assert!(
-            !named.starts_with(packs.join("default")),
+            !named.starts_with(&packs),
             "the shipped pack must survive: {named:?}"
         );
     }
     assert!(
         files
             .iter()
-            .any(|f| f.starts_with(vault.join("worlds/default"))),
-        "its own conversations and map still go"
+            .any(|f| f.starts_with(vault.join("worlds/archipelago"))),
+        "its own map still goes"
     );
 }

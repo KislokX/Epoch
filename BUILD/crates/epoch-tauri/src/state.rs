@@ -787,7 +787,8 @@ impl World {
         let outside = reading(&self.bridge).groups();
         let inner = self.lock();
         LauncherView::survey(
-            &worlds_dir(),
+            &shipped_worlds_dir(),
+            &my_worlds_dir(),
             &vault_dir(),
             &inner.registry,
             &inner.skills,
@@ -2062,7 +2063,7 @@ impl World {
     /// Returns false when no installed World has that id. Addressed by id and never by name,
     /// so renaming a World never breaks entering it — the same rule Places follow.
     pub fn enter(&self, world_id: &str) -> bool {
-        let (packs, mut problems) = WorldPack::discover(&worlds_dir());
+        let (packs, mut problems) = discover_worlds();
         let Some(pack) = packs.into_iter().find(|p| p.id == world_id) else {
             return false;
         };
@@ -2190,13 +2191,15 @@ impl World {
     /// reason a confirmation exists rather than a button.
     pub fn world_removal(&self, world_id: &str) -> Result<RemovalView, String> {
         let inner = self.lock();
-        let (packs, _) = epoch_engine::WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let pack = packs
             .iter()
             .find(|p| p.id == world_id)
             .ok_or_else(|| format!("no installed World has the id '{world_id}'"))?;
         let name = pack.name.clone();
-        let shipped = world_id == epoch_engine::erase::SHIPPED;
+        // Shipped means both: the installer's list names it, and it is in the installer's folder.
+        let shipped = epoch_engine::relocate::SHIPPED.contains(&world_id)
+            && pack.dir().starts_with(shipped_worlds_dir());
 
         // Who lives there. They are **not** removed — this is the sentence the owner asked for.
         let residents: Vec<String> = inner
@@ -2207,7 +2210,7 @@ impl World {
             .collect();
         drop(inner);
 
-        let files = epoch_engine::erase::world_files(&worlds_dir(), &vault_dir(), world_id);
+        let files = epoch_engine::erase::world_files(&vault_dir(), world_id);
         let (quests, _) = epoch_engine::QuestDigest::read_all(&vault_dir(), world_id);
 
         let mut consequences = Vec::new();
@@ -2261,10 +2264,13 @@ impl World {
             ));
         }
         if shipped {
-            survives.push(
-                "The Default World cannot be removed: every other World is built from it. Its conversations and its map go, and the World itself stays."
-                    .to_owned(),
-            );
+            // **About the World that actually ships, for the reason that is actually true.** This
+            // named "The Default World" and said every other World is built from it — two days
+            // after `default` stopped shipping, and with nothing measuring the second half. What
+            // is true is narrower: the installer put it there and puts it back on every update.
+            survives.push(format!(
+                "{name} came with Epoch, so the World itself stays — the installer puts it back on every update. Its conversations and its map go."
+            ));
         }
 
         Ok(RemovalView::of(&epoch_engine::Removal {
@@ -2285,7 +2291,7 @@ impl World {
         &self,
         world_id: &str,
     ) -> Result<(epoch_engine::export::Export, String), String> {
-        let (packs, _) = epoch_engine::WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let pack = packs
             .iter()
             .find(|p| p.id == world_id)
@@ -2301,7 +2307,7 @@ impl World {
         Ok((
             epoch_engine::export::plan(
                 &pack.name,
-                &worlds_dir().join(world_id),
+                pack.dir(),
                 &vault_dir().join("worlds").join(world_id),
                 // Where it *would* land if nobody chose. Kept so the plan can be shown before
                 // the dialog opens; the user's choice replaces it.
@@ -2379,10 +2385,11 @@ impl World {
             self.leave();
         }
 
-        // 2. Its files — the pack (unless shipped) and its folder in the vault.
+        // 2. Its files: its folder in the vault, which holds its pack too if somebody made it.
+        //    The shipped folder is never named.
         let plan = epoch_engine::Removal {
             what: world_id.to_owned(),
-            files: epoch_engine::erase::world_files(&worlds_dir(), &vault, world_id),
+            files: epoch_engine::erase::world_files(&vault, world_id),
             ..Default::default()
         };
         problems.extend(plan.carry_out_with_dirs());
@@ -2481,7 +2488,7 @@ impl World {
     /// that happened.
     fn forget_agent_sessions(&self, vault: &std::path::Path) -> Vec<String> {
         let mut problems = Vec::new();
-        let (packs, _) = epoch_engine::WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let inner = self.lock();
 
         for pack in &packs {
@@ -2912,7 +2919,7 @@ impl World {
     /// Read from the vault, not from this session — close Epoch and reopen it and the answer is
     /// the same, which is what separates a log from a screen that remembers.
     pub fn ships_log(&self) -> epoch_engine::ShipsLog {
-        epoch_engine::ShipsLog::read(&worlds_dir(), &vault_dir())
+        epoch_engine::ShipsLog::read(&shipped_worlds_dir(), &my_worlds_dir(), &vault_dir())
     }
 
     /// Look at a folder somebody is about to hand a World, and report what is there.
@@ -2942,7 +2949,8 @@ impl World {
         project_root: Option<&str>,
         crew: &[String],
     ) -> Result<String, String> {
-        let id = WorldPack::create(&worlds_dir(), name).map_err(|err| err.to_string())?;
+        let id = WorldPack::create(&my_worlds_dir(), name, &shipped_worlds_dir())
+            .map_err(|err| err.to_string())?;
 
         // The project root arrives with the World, not after it (ADR-0025): planning against
         // the user's real codebase is worth immeasurably more than planning against a
@@ -2981,7 +2989,7 @@ impl World {
     /// Identity is untouched — only what it is called. Returns the error to show if it could
     /// not be done, so the Launcher can say why instead of failing silently.
     pub fn rename(&self, world_id: &str, name: &str) -> Result<(), String> {
-        let (packs, _) = WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let pack = packs
             .into_iter()
             .find(|p| p.id == world_id)
@@ -3474,9 +3482,45 @@ fn paths() -> &'static epoch_engine::paths::Paths {
     PATHS.get_or_init(epoch_engine::paths::Paths::discover)
 }
 
-/// Where installed Worlds live.
-fn worlds_dir() -> PathBuf {
+/// Where the Worlds that came with Epoch live: beside the binary, in the installer's folder.
+fn shipped_worlds_dir() -> PathBuf {
     paths().packs()
+}
+
+/// Where the Worlds somebody made live: `vault/worlds/`, beside their maps and Quests.
+///
+/// Split from the single `worlds_dir` there was, because that one was the installer's folder and
+/// every new World went into it — measured on an installed build, where an uninstall left a
+/// World the user made behind in a program folder with no program in it.
+fn my_worlds_dir() -> PathBuf {
+    paths().worlds()
+}
+
+/// Every World on this machine, from both folders. The one way the shell asks.
+pub(crate) fn discover_worlds() -> (Vec<WorldPack>, Vec<String>) {
+    WorldPack::discover_all(&shipped_worlds_dir(), &my_worlds_dir())
+}
+
+/// Move the Worlds made before they had a home of their own. Once, at startup.
+///
+/// See `epoch_engine::relocate`. What moved and what would not are both said out loud: this
+/// rearranges the user's own folders, and a program that does that with nothing on the record
+/// is the thing this codebase keeps deleting.
+pub fn relocate_worlds() {
+    let done = epoch_engine::relocate::user_worlds(
+        &shipped_worlds_dir(),
+        &my_worlds_dir(),
+        epoch_engine::relocate::SHIPPED,
+    );
+    if !done.moved.is_empty() {
+        eprintln!(
+            "epoch: moved the Worlds you made into the vault — {}",
+            done.moved.join(", ")
+        );
+    }
+    for problem in &done.problems {
+        eprintln!("epoch: {problem}");
+    }
 }
 
 /// The user's own things: their crew, their Worlds, their Quests, their profile.

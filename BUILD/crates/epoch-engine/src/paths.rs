@@ -15,13 +15,20 @@
 //!
 //! | | Holds | Written by | Where |
 //! |---|---|---|---|
-//! | **shipped** | one World Pack, `archipelago` | the installer, never the app | beside the binary |
+//! | **shipped** | the World Packs that came with Epoch | the installer, never the app | beside the binary |
 //! | **data** | the vault: crew, Worlds, Quests, settings, secrets | the app | `%APPDATA%\Epoch` |
 //! | project roots | the user's own codebases | the user | anywhere — chosen, never guessed |
 //!
 //! Project roots are deliberately absent from this type. They are not a location Epoch knows;
 //! they are an answer the user gave, stored per World (ADR-0025), and putting them here would
 //! invite something to guess one.
+//!
+//! ## Worlds live in both, and which one says who made it
+//!
+//! A World the installer ships is in `shipped`; a World somebody makes is in `data`, at
+//! `vault/worlds/<id>/`, beside its own map and Quests. Until 2026-09-10 the table above said
+//! so and the code did not: `create` wrote into `shipped`, the installer's folder, and a World
+//! made in an installed Epoch was left behind by its uninstall. See `relocate`.
 //!
 //! ## Resolved once
 //!
@@ -91,6 +98,14 @@ impl Paths {
     /// Installed Worlds — the packs that came with Epoch.
     pub fn packs(&self) -> PathBuf {
         self.shipped.join("packs")
+    }
+
+    /// Worlds this user made: `vault/worlds/`, one folder each, beside the map and the Quests.
+    ///
+    /// Never `shipped`. The installer owns that folder and replaces it on every update; a World
+    /// somebody made there lasted only as long as nothing tidied it.
+    pub fn worlds(&self) -> PathBuf {
+        self.vault().join("worlds")
     }
 
     /// Where shipped artwork would go, if anything shipped there.
@@ -219,6 +234,10 @@ mod tests {
         assert!(paths.packs().starts_with("C:/Program Files/Epoch"));
         assert!(paths.assets().starts_with("C:/Program Files/Epoch"));
         assert!(paths.vault().starts_with("C:/Users/somebody"));
+        assert!(
+            paths.worlds().starts_with("C:/Users/somebody"),
+            "a World somebody made is theirs, not the installer's"
+        );
         assert!(paths.definitions().starts_with(paths.vault()));
         assert!(paths.logs().starts_with("C:/Users/somebody"));
     }

@@ -4032,6 +4032,11 @@ fn main() {
                 microphone::answer_for(&window, state::vault_dir());
             }
 
+            // **The Worlds somebody made move into the vault, before anything lists them.**
+            // Synchronous and first: a handful of renames, and a Launcher that surveyed before
+            // this ran would show a World in the old place and then lose track of it.
+            state::relocate_worlds();
+
             // **What is on this machine is configured, without being asked for twice**
             // (owner, 2026-09-07). Somebody who installed llama.cpp — through Epoch's own
             // Setup, or years before Epoch existed — has already said what they want to think

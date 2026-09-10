@@ -104,6 +104,7 @@ pub mod provider;
 pub mod quest;
 pub mod ran;
 pub mod readiness;
+pub mod relocate;
 pub mod render;
 pub mod rvc;
 pub mod secrets;

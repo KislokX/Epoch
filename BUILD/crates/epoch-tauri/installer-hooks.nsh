@@ -7,6 +7,13 @@
 ; under `%APPDATA%\Epoch` instead: the vault, the crew, the Worlds, and the Generative Library
 ; the Workshop downloads models into.
 ;
+; **"the Worlds" was not true when this was written.** Until 2026-09-10 a World somebody made
+; was written beside the binary, into the installer's own `packs` folder -- so this box never
+; reached it, and a plain uninstall left it behind in a program folder with no program in it
+; (measured). Worlds made now live in the vault's `worlds` folder under APPDATA, and the ones
+; made before are moved there on the next launch (`epoch_engine::relocate`). The sentence above
+; is true from that version on.
+;
 ; Measured on 2026-09-08 with the box UNTICKED -- a silent uninstall and a reinstall:
 ;
 ;   %APPDATA%\Epoch              43,129 files   100.07 GB   left untouched

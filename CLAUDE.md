@@ -2605,3 +2605,39 @@ with backticks the old one did not use. One afternoon, one machine, two shapes f
 command. They are trimmed rather than matched, so a version that stops using them needs no edit
 either, and the fixture keeps **both** — a parser that only knows the newer shape breaks for
 everybody who has not updated yet.
+
+## A guard keyed on a name protects the name (added 2026-09-10, from testing an update)
+
+The published v0.1.0 was installed, a World was made in it, and a newer build was installed on
+top. The update kept the World. Measuring *why* found three things nobody had reason to look for.
+
+**User data was in a folder somebody else owns.** A new World was written beside the binary, into
+the installer's `packs`, while the table in `paths.rs` said Worlds live in the vault. It survived
+the update because the uninstaller removes that folder with a plain `RMDir`, which refuses a
+folder that is not empty — and the World was what made it not empty. A plain uninstall then left
+it in a program folder with no program. **Surviving by accident is not surviving:** the first
+installer that tidied up with `/r` would have been a data-loss release with no change to Epoch at
+all.
+
+**A guard keyed on a name protects the name.** `erase::SHIPPED = "default"` existed to stop the
+shipped World being deleted. `default` stopped shipping and the constant did not move, so for two
+days it protected nothing, while REMOVE on the Archipelago planned to delete its manifest —
+measured through the real function, not by pressing the button. Correcting the string would have
+been the same bug waiting for the next rename. The fix removes the possibility instead: the
+shipped folder is no longer an argument to removal, so nothing can name a file in it, and the one
+place that still needs *what shipped* reads it off the folder the installer bundles.
+
+> **Prefer making the protected thing unreachable to excluding it by name.** An exclusion list is
+> a second copy of a fact, and the copy is the half nobody updates.
+
+**Moving data is a privacy change, not a path change.** Once a World's pack and its vault folder
+became one folder, the export that took *the pack, whole* would have archived every conversation
+in it. Nothing would have failed; it would simply have sent them. A test now builds exactly that
+folder and asserts the archive holds the manifest and the map and nothing else.
+
+**And a comment is code when another tool compiles the file.** Correcting a comment in the NSIS
+hook broke the installer: a heredoc halved a backslash, `\v` reached Python as a vertical tab, and
+makensis read it as a line break. The build chain used `;`, carried on, and built `epoch-setup`
+around the previous installer — whose *carries the installer* check then compared a stale file
+with itself and printed `True`. Chain builds with `&&`, and check an artefact is newer than the
+build that claims to have made it.

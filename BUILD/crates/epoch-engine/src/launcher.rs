@@ -882,8 +882,12 @@ impl ShipsLog {
     /// Across Worlds on purpose: this is the *bridge*, and you are standing on it precisely
     /// because you have not chosen a World yet. A log that only worked once you were inside one
     /// would be useless at the only moment it is on screen.
-    pub fn read(worlds_dir: &std::path::Path, vault: &std::path::Path) -> Self {
-        let (packs, _) = WorldPack::discover(worlds_dir);
+    pub fn read(
+        shipped: &std::path::Path,
+        mine: &std::path::Path,
+        vault: &std::path::Path,
+    ) -> Self {
+        let (packs, _) = WorldPack::discover_all(shipped, mine);
         let mut quests = Vec::new();
         let mut runs = Vec::new();
 
@@ -975,8 +979,10 @@ impl LauncherView {
     /// `outside` is one [`Group`](crate::capabilities::Group) per connected MCP server. Passed
     /// in rather than read here, because a survey of files on disk must not start a process —
     /// and because the caller is the one holding the bridge.
+    /// `shipped` is beside the binary and `mine` is `vault/worlds/` — see `WorldPack::discover_all`.
     pub fn survey(
-        worlds_dir: &Path,
+        shipped: &Path,
+        mine: &Path,
         vault: &Path,
         definitions: &DefinitionRegistry,
         skills: &crate::skills::SkillRegistry,
@@ -995,7 +1001,7 @@ impl LauncherView {
         built.sort();
         built.dedup();
 
-        let (packs, problems) = WorldPack::discover(worlds_dir);
+        let (packs, problems) = WorldPack::discover_all(shipped, mine);
         // Where each World works. In the vault, never in the pack — a shipped pack cannot know
         // where you keep your code (ADR-0025, and the same argument as the crew roster).
         let projects = crate::project::ProjectRoots::load(vault);
@@ -1231,6 +1237,11 @@ mod tests {
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs")
     }
 
+    /// Worlds somebody made. None in these fixtures: what these tests survey is what ships.
+    fn my_worlds() -> std::path::PathBuf {
+        vault().join("worlds")
+    }
+
     /// A vault that belongs to these tests, and to nobody.
     ///
     /// This read `../../vault` — the vault of whichever machine was running the tests. So
@@ -1258,7 +1269,15 @@ mod tests {
 
     /// Survey what actually ships. Session length is fixed so nothing here depends on a clock.
     fn survey() -> LauncherView {
-        LauncherView::survey(&worlds_dir(), &vault(), &definitions(), &skills(), 0, &[])
+        LauncherView::survey(
+            &worlds_dir(),
+            &my_worlds(),
+            &vault(),
+            &definitions(),
+            &skills(),
+            0,
+            &[],
+        )
     }
 
     #[test]
@@ -1273,7 +1292,15 @@ mod tests {
         std::fs::write(dir.join("broken.toml"), "name = \"Half a file").expect("write");
 
         let skills = crate::skills::SkillRegistry::load(&vault);
-        let view = LauncherView::survey(&worlds_dir(), &vault, &definitions(), &skills, 0, &[]);
+        let view = LauncherView::survey(
+            &worlds_dir(),
+            &my_worlds(),
+            &vault,
+            &definitions(),
+            &skills,
+            0,
+            &[],
+        );
 
         assert!(view.skills.is_empty(), "an unreadable Skill is not offered");
         assert!(
@@ -1294,6 +1321,7 @@ mod tests {
         // could not be given one, however plainly the server was offering it.
         let view = LauncherView::survey(
             &worlds_dir(),
+            &my_worlds(),
             &vault(),
             &definitions(),
             &skills(),
@@ -1331,6 +1359,7 @@ mod tests {
         // the screen, and the file they wrote froze that day's list forever.
         let view = LauncherView::survey(
             &worlds_dir(),
+            &my_worlds(),
             &vault(),
             &definitions(),
             &skills(),
@@ -1364,6 +1393,7 @@ mod tests {
         // unsayable.
         let view = LauncherView::survey(
             &worlds_dir(),
+            &my_worlds(),
             &vault(),
             &definitions(),
             &skills(),
@@ -1402,6 +1432,7 @@ mod tests {
         // `None` now travels as `None`, so a save that did not touch the boxes cannot narrow it.
         let view = LauncherView::survey(
             &worlds_dir(),
+            &my_worlds(),
             &vault(),
             &definitions(),
             &skills(),

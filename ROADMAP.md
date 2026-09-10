@@ -3719,7 +3719,7 @@ the AMD machine with **no Worlds and no asset kit**. Somebody would have flown a
 room to measure an empty World.
 
 Fixed and verified by listing the installer's own contents rather than by trusting the build:
-`packs\default`, `packsrchipelago` and `assets\kit` are all in it, beside `epoch-tauri.exe`
+`packs\default`, `packs\archipelago` and `assets\kit` are all in it, beside `epoch-tauri.exe`
 where `installed_beside()` looks. The bundles grew 13.1 → 18.5 MB (MSI) and 9.4 → 14.8 MB (NSIS),
 which is the 5.2 MB those two directories weigh.
 
@@ -4866,6 +4866,44 @@ CRLF to LF — a three-line change arriving as a ten-thousand-line diff. **`carg
 this project that trap three times and an in-place `sed` is the fourth.** Everything here is
 done in slurp mode over bytes, and the CR and LF counts are read back afterwards rather than
 assumed.
+
+#### Where a World somebody made lives *(2026-09-10)*
+
+Found by testing an update rather than reading about one. The published v0.1.0 was installed, a
+World was made in it through the Launcher, and a newer build was installed over it through
+`epoch-setup` — the path the README gives a stranger.
+
+**The update kept the World, and only by accident.** It had been written into the program
+folder the installer owns, because `Paths::packs` was the only place Worlds were looked for —
+while the table at the top of `paths.rs` said Worlds live in the vault. The generated
+uninstaller removes the files it installed and then the `packs` folder with a plain `RMDir`,
+which refuses a folder that is not empty; the user's World was what kept it from being empty. A
+plain uninstall afterwards left that World behind in a program folder with no program in it,
+where the *delete application data* box never reaches.
+
+Three things, each fixed in the same change:
+
+| | |
+|---|---|
+| **Worlds you make** | now in `vault/worlds/<id>/`, beside their map and Quests. The ones made before are moved there on the next launch, all or nothing per World, never overwriting (`epoch_engine::relocate`) |
+| **The shipped World's guard** | was the typed id `"default"`, two days after `default` stopped shipping. Measured through `world_files`: removing the Archipelago planned to delete its `pack.toml`. The shipped folder is no longer an argument to removal at all, and the list of what shipped is read off `packs/` at build time |
+| **Export** | once a World's pack and its vault folder are one folder, the whole-pack pass would have archived its conversations. It is skipped when the two are the same folder, and a test builds exactly that case |
+
+And one on the way: an `epoch-setup` built after a version bump carried the *previous* installer,
+because `bundle/nsis` held both and `read_dir` returned the old one first (`e9ad206`).
+
+**Measured on the installed build afterwards:**
+
+| | |
+|---|---|
+| Before | published v0.1.0 made the World `mudanza` in the program folder; `vault/worlds` did not exist |
+| Installed the new build over it | program replaced (exe hash changed); the World **still** in the program folder — the installer does not move anything |
+| First launch of the new build | `vault/worlds/mudanza/pack.toml` byte-identical to the original; the old folder gone; the program folder holds only `archipelago` |
+| Launcher | `2 WORLDS DOCKED` — Archipelago and Mudanza, from their two folders |
+| REMOVE on the Archipelago | "The Archipelago came with Epoch, so the World itself stays — the installer puts it back on every update. Its conversations and its map go." Nothing from the program folder listed |
+| REMOVE on Mudanza | lists exactly its `pack.toml` and its folder in the vault |
+| Plain uninstall afterwards | the program folder is **gone entirely** — before the change, the same step left the World behind in it. Registry entry and Start Menu shortcut gone; `%APPDATA%\Epoch` byte-identical before and after |
+
 
 #### How a release is cut
 

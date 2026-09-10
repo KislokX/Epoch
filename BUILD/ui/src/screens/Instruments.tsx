@@ -622,7 +622,9 @@ export function BridgeConsole({ onNewWorld, log }: ConsoleProps) {
   const at = pageOf(page, runs.length, PER_CONSOLE_PAGE);
   const actions = [
     { label: "NEW\nWORLD", hue: "#6fb8ef", shape: "circle(50%)", ready: true, run: onNewWorld },
-    // PENDING: needs the dialog + fs plugins to pick a folder and copy it into packs/.
+    // PENDING: needs the dialog + fs plugins to pick a folder and copy it into the vault's
+    // `worlds/` — never `packs/`, which is the installer's folder and is replaced on every update.
+    // A World written there once was left behind by an uninstall (epoch_engine::relocate).
     { label: "IMPORT\nWORLD", hue: "#5fd6a4", shape: "polygon(50% 100%,0 45%,32% 45%,32% 0,68% 0,68% 45%,100% 45%)", ready: false },
     // PENDING: needs a zip crate, and a decision on whether a backup carries the crew.
     { label: "BACKUP\nSHIP", hue: "#cbbfa6", shape: "polygon(0 12%,100% 12%,100% 88%,0 88%)", ready: false },

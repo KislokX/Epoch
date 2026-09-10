@@ -424,7 +424,7 @@ impl World {
     /// `None` clears. The image arrives base64-encoded from the webview's own file picker, so
     /// the frontend never gains filesystem access to offer it (see `epoch_engine::import`).
     pub fn set_world_art(&self, world_id: &str, image: Option<&str>) -> Result<(), String> {
-        let (packs, _) = WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let pack = packs
             .into_iter()
             .find(|p| p.id == world_id)
@@ -461,7 +461,7 @@ impl World {
             .world_id
             .clone()
             .ok_or_else(|| "no World is open".to_string())?;
-        let (packs, _) = WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let pack = packs
             .into_iter()
             .find(|p| p.id == world_id)
@@ -484,7 +484,7 @@ impl World {
             .world_id
             .clone()
             .ok_or_else(|| "no World is open".to_string())?;
-        let (packs, _) = WorldPack::discover(&worlds_dir());
+        let (packs, _) = discover_worlds();
         let pack = packs
             .into_iter()
             .find(|p| p.id == world_id)
